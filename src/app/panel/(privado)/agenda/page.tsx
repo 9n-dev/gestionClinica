@@ -83,7 +83,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
         </form>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-linea bg-[#e9eef5]">
+      <div className="relative mt-6 overflow-x-auto rounded-lg border border-linea bg-[#e9eef5]">
         <div
           className="grid text-sm"
           style={{
@@ -143,7 +143,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
                 key={c.id}
                 href={`/panel/citas/${c.id}`}
                 style={{ gridColumn: col + 2, gridRow: `${fila(minutosDe(c.inicio))} / ${fila(minutosDe(c.fin))}` }}
-                className={`z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 leading-tight text-tinta no-underline hover:brightness-95 ${tono} ${c.estado === "ATENDIDA" ? "opacity-60" : ""}`}
+                className={`z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 leading-tight text-tinta no-underline hover:brightness-95 ${c.estado === "ATENDIDA" ? "border-pizarra bg-[#eef1f5]" : tono}`}
               >
                 <span className="block truncate"><span className="font-bold tabular-nums">{formatoHora(c.inicio)}</span> {c.pacienteNombre}</span>
                 <span className="block truncate text-pizarra">{c.servicio.nombre}{c.estado === "ATENDIDA" && ", atendida"}</span>

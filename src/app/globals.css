@@ -44,6 +44,10 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
+  /* Sobre fondo oscuro (cabecera del panel, pie) el foco va en blanco */
+  .bg-tinta :focus-visible {
+    outline-color: #fff;
+  }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after {
@@ -76,7 +80,7 @@
     @apply font-bold text-cobalto underline underline-offset-4 hover:text-cobalto-oscuro;
   }
   .campo {
-    @apply block min-h-11 w-full rounded-md border border-pizarra bg-white px-3 py-2 text-tinta;
+    @apply block min-h-11 w-full rounded-md border border-pizarra bg-white px-3 py-2 text-tinta placeholder:text-pizarra;
   }
   .campo[aria-invalid="true"] {
     @apply border-2 border-error;
@@ -92,7 +96,7 @@
   .prosa p, .prosa ul, .prosa table { @apply mb-4; }
   .prosa ul { @apply list-disc pl-6; }
   .prosa a { @apply font-bold text-cobalto underline underline-offset-4 hover:text-cobalto-oscuro; }
-  .prosa th, .prosa td { @apply border border-linea px-3 py-2 text-left align-top text-base; }
+  .prosa th, .prosa td { @apply border border-linea px-3 py-2 text-left align-top text-base [overflow-wrap:anywhere]; }
 }
 
 /* Único momento de animación de la web: las isobaras de la huella se dibujan al cargar. */

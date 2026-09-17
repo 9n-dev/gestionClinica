@@ -22,7 +22,7 @@ export default async function Emails() {
           {emails.map((e) => (
             <li key={e.id}>
               <details className="rounded-lg border border-linea bg-white">
-                <summary className="grid cursor-pointer gap-x-4 gap-y-1 p-4 md:grid-cols-[9.5rem_13rem_1fr_auto]">
+                <summary className="grid cursor-pointer gap-x-4 gap-y-1 p-4 md:grid-cols-[11rem_13rem_1fr_auto]">
                   <span className="tabular-nums text-pizarra">{formatoFechaHora(e.enviadoAt)}</span>
                   <span className="font-bold">{TIPOS[e.tipo]}</span>
                   <span>{e.asunto}<span className="block break-all text-pizarra">Para {e.para}</span></span>

@@ -17,7 +17,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${titular.variable} ${cuerpo.variable}`}>
-      {/* TEMP-DR */}<head><meta name="darkreader-lock" /></head>
       <body className="font-sans antialiased">
         <a href="#contenido" className="btn btn-primario sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50">
           Saltar al contenido
