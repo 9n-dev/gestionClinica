@@ -1,26 +1,103 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Paleta propia: blancos fríos de clínica + los colores de un mapa de presiones plantares
+   (cobalto = poca presión, ámbar = pico de presión). */
+@theme {
+  --color-gasa: #f4f7fa;
+  --color-tinta: #15203b;
+  --color-pizarra: #55617a;
+  --color-linea: #d3dce8;
+  --color-cobalto: #2346c4;
+  --color-cobalto-oscuro: #1a3494;
+  --color-cielo: #dce6fb;
+  --color-ambar: #f0b33c;
+  --color-ambar-claro: #fdf1d6;
+  --color-error: #b3261e;
+  --color-exito: #1b6e45;
+
+  --font-sans: var(--font-cuerpo), system-ui, sans-serif;
+  --font-display: var(--font-titular), system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-gasa);
+    color: var(--color-tinta);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-cobalto);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .contenedor {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+  .btn {
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md px-5 py-2 text-base font-bold no-underline transition-colors;
+  }
+  .btn-primario {
+    @apply bg-cobalto text-white hover:bg-cobalto-oscuro;
+  }
+  .btn-secundario {
+    @apply border-2 border-cobalto bg-white text-cobalto hover:bg-cielo;
+  }
+  .btn-peligro {
+    @apply border-2 border-error bg-white text-error hover:bg-error hover:text-white;
+  }
+  .btn[disabled], .btn[aria-disabled="true"] {
+    @apply cursor-not-allowed opacity-60;
+  }
+  .enlace {
+    @apply font-bold text-cobalto underline underline-offset-4 hover:text-cobalto-oscuro;
+  }
+  .campo {
+    @apply block min-h-11 w-full rounded-md border border-pizarra bg-white px-3 py-2 text-tinta;
+  }
+  .campo[aria-invalid="true"] {
+    @apply border-2 border-error;
+  }
+  .etiqueta {
+    @apply mb-1 block font-bold;
+  }
+  .prosa {
+    @apply max-w-[68ch];
+  }
+  .prosa h2 { @apply mt-10 mb-3 text-2xl font-bold; }
+  .prosa h3 { @apply mt-6 mb-2 text-xl font-bold; }
+  .prosa p, .prosa ul, .prosa table { @apply mb-4; }
+  .prosa ul { @apply list-disc pl-6; }
+  .prosa a { @apply enlace; }
+  .prosa th, .prosa td { @apply border border-linea px-3 py-2 text-left align-top text-base; }
+}
+
+/* Único momento de animación de la web: las isobaras de la huella se dibujan al cargar. */
+@keyframes isobara {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.isobara {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: isobara 0.7s ease-out both;
 }
