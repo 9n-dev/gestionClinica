@@ -23,6 +23,12 @@ export function diaDe(fecha: Date): Dia {
   return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
 }
 
+/** Minutos desde medianoche, en hora de Madrid. */
+export function minutosDe(fecha: Date): number {
+  const t = new TZDate(fecha.getTime(), ZONA);
+  return t.getHours() * 60 + t.getMinutes();
+}
+
 export const hoy = (): Dia => diaDe(new Date());
 
 /** Aritmética de días sobre el calendario (sin horas, inmune al cambio de hora). */

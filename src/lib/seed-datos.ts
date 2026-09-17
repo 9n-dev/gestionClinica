@@ -3,6 +3,7 @@ import { hashSync } from "bcryptjs";
 import type { prisma as Prisma } from "./db";
 import { USUARIO_DEMO } from "./clinica";
 import { calcularHuecos, finDe, franjasDe, type Intervalo, type Tramo } from "./disponibilidad";
+import { plantillas } from "./emails/plantillas";
 import { aInstante, hoy, sumarDias } from "./fechas";
 
 // Datos de la demo. Lo usan `npm run seed` y el cron de reinicio diario.
@@ -91,7 +92,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   const ahora = new Date();
   let creadas = 0;
   for (let intento = 0; creadas < nCitas && intento < nCitas * 20; intento++) {
-    const dia = sumarDias(d0, Math.floor(rnd() * 14));
+    const dia = sumarDias(d0, Math.floor(rnd() ** 1.5 * 14)); // algo más cargados los primeros días
     const pro = elegir(pros);
     const servicio = elegir(servicios);
     const huecos = calcularHuecos({ dia, duracionMin: servicio.duracionMin, tramos: pro.tramos, ocupados: pro.ocupados, desde: aInstante(d0) })
@@ -101,7 +102,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
     const fin = finDe(inicio, servicio.duracionMin);
     const nombre = PACIENTES[creadas % PACIENTES.length];
     const cancelada = creadas % 13 === 12;
-    await prisma.cita.create({
+    const cita = await prisma.cita.create({
       data: {
         servicioId: servicio.id,
         profesionalId: pro.id,
@@ -117,6 +118,16 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
       },
     });
     if (!cancelada) pro.ocupados.push({ inicio, fin });
+    // Unos cuantos emails de muestra para el panel (registrados, nunca enviados).
+    if (!cancelada && creadas % 6 === 0) {
+      const completa = { ...cita, servicio, profesional: pro };
+      await prisma.emailEnviado.createMany({
+        data: [
+          { tipo: "CONFIRMACION_PACIENTE", canal: "CONSOLA", para: cita.pacienteEmail, citaId: cita.id, ...plantillas.confirmacionPaciente(completa) },
+          { tipo: "AVISO_CLINICA", canal: "CONSOLA", para: "clinica@podologiaserrano.es", citaId: cita.id, ...plantillas.avisoClinica(completa) },
+        ],
+      });
+    }
     creadas++;
   }
   return { citas: creadas, bloqueos: bloqueos.length };
