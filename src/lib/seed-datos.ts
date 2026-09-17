@@ -1,0 +1,123 @@
+import { randomBytes } from "node:crypto";
+import { hashSync } from "bcryptjs";
+import type { prisma as Prisma } from "./db";
+import { USUARIO_DEMO } from "./clinica";
+import { calcularHuecos, finDe, franjasDe, type Intervalo, type Tramo } from "./disponibilidad";
+import { aInstante, hoy, sumarDias } from "./fechas";
+
+// Datos de la demo. Lo usan `npm run seed` y el cron de reinicio diario.
+
+const SERVICIOS = [
+  { slug: "consulta-general", nombre: "Consulta general", duracionMin: 30, precioCent: 4000,
+    descripcion: "Primera valoración o revisión de cualquier molestia en el pie: dolor, durezas, uñas, piel. Exploramos, te explicamos qué ocurre y te proponemos un plan." },
+  { slug: "quiropodia", nombre: "Quiropodia", duracionMin: 45, precioCent: 4500,
+    descripcion: "Cuidado integral del pie: corte y fresado de uñas, eliminación de durezas y callosidades, tratamiento de helomas e hidratación final." },
+  { slug: "estudio-de-la-pisada", nombre: "Estudio de la pisada", duracionMin: 60, precioCent: 8000,
+    descripcion: "Análisis biomecánico en estático y en marcha con plataforma de presiones y vídeo. Imprescindible antes de unas plantillas o si corres con dolor." },
+  { slug: "plantillas-revision", nombre: "Plantillas a medida – revisión", duracionMin: 30, precioCent: 3500,
+    descripcion: "Revisión y ajuste de tus plantillas personalizadas: desgaste, adaptación al calzado y evolución de los síntomas." },
+];
+
+const PROFESIONALES = [
+  { slug: "laura-serrano", nombre: "Dra. Laura Serrano", titulo: "Podóloga · Directora clínica · Col. n.º 28-0000", sabados: true,
+    bio: "Graduada en Podología por la Universidad Complutense y máster en biomecánica. Más de quince años tratando pies de deportistas, mayores y pacientes con pie de riesgo. Fundó la clínica en 2011 con una idea sencilla: explicar bien y tratar sin prisa." },
+  { slug: "marcos-ortiz", nombre: "Dr. Marcos Ortiz", titulo: "Podólogo · Podología deportiva · Col. n.º 28-0001", sabados: false,
+    bio: "Graduado en Podología por la Universidad Rey Juan Carlos y especialista en podología deportiva. Corredor popular, se ocupa de los estudios de la pisada y de las plantillas a medida de la clínica." },
+];
+
+const PACIENTES = [
+  "Carmen Ruiz Molina", "Antonio Vega Prieto", "Lucía Campos Gil", "Javier Moreno Sanz", "Pilar Nieto Rubio",
+  "Francisco Marín Soler", "Elena Cano Pastor", "Manuel Rey Aguilar", "Rosa Ibáñez Lozano", "David Pascual Mora",
+  "Isabel Gallego Cruz", "Sergio Bravo Peña", "Teresa Vidal Román", "Alberto Crespo Luna", "Nuria Santos Bermejo",
+  "Raúl Herrero Calvo", "Marta Esteban Rivas", "José Luis Montero Díez", "Beatriz Carmona Vera", "Andrés Blanco Otero",
+  "Cristina Arias Redondo", "Óscar Velasco Pardo", "Silvia Benítez Rojo", "Emilio Fuentes Cabello", "Patricia Lorenzo Sáez",
+  "Víctor Hidalgo Mesa", "Inés Robles Trujillo", "Guillermo Soto Navas", "Amparo Duran Cuesta", "Rubén Gallardo Espejo",
+];
+
+// PRNG determinista (mulberry32): la demo sale igual en cada reinicio del mismo día.
+function azar(semilla: number) {
+  return () => {
+    semilla = (semilla + 0x6d2b79f5) | 0;
+    let t = Math.imul(semilla ^ (semilla >>> 15), 1 | semilla);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const sinAcentos = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+export const nuevoToken = () => randomBytes(24).toString("base64url");
+
+export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
+  // Borrado en orden de dependencias
+  await prisma.emailEnviado.deleteMany();
+  await prisma.franjaOcupada.deleteMany();
+  await prisma.cita.deleteMany();
+  await prisma.bloqueo.deleteMany();
+  await prisma.horarioLaboral.deleteMany();
+  await prisma.servicio.deleteMany();
+  await prisma.profesional.deleteMany();
+  await prisma.usuario.deleteMany();
+
+  await prisma.usuario.create({
+    data: { email: USUARIO_DEMO.email, nombre: "Usuario demo", passwordHash: hashSync(USUARIO_DEMO.password, 10) },
+  });
+
+  const servicios = await Promise.all(SERVICIOS.map((s, orden) => prisma.servicio.create({ data: { ...s, orden } })));
+
+  const pros = [];
+  for (const [orden, { sabados, ...p }] of PROFESIONALES.entries()) {
+    const tramos: Tramo[] = [1, 2, 3, 4, 5].flatMap((diaSemana) => [
+      { diaSemana, minInicio: 9 * 60, minFin: 14 * 60 },
+      { diaSemana, minInicio: 16 * 60, minFin: 20 * 60 },
+    ]);
+    if (sabados) tramos.push({ diaSemana: 6, minInicio: 9 * 60, minFin: 13 * 60 });
+    const pro = await prisma.profesional.create({ data: { ...p, orden, horarios: { create: tramos } } });
+    pros.push({ ...pro, tramos, ocupados: [] as Intervalo[] });
+  }
+  const [laura, marcos] = pros;
+
+  const d0 = hoy();
+  const bloqueos = [
+    { profesionalId: laura.id, inicio: aInstante(sumarDias(d0, 3), 16 * 60), fin: aInstante(sumarDias(d0, 3), 20 * 60), motivo: "Formación: curso de ecografía" },
+    { profesionalId: marcos.id, inicio: aInstante(sumarDias(d0, 9)), fin: aInstante(sumarDias(d0, 11)), motivo: "Vacaciones" },
+    ...pros.map((p) => ({ profesionalId: p.id, inicio: aInstante(sumarDias(d0, 1), 13 * 60), fin: aInstante(sumarDias(d0, 1), 14 * 60), motivo: "Reunión de equipo" })),
+  ];
+  await prisma.bloqueo.createMany({ data: bloqueos });
+  for (const b of bloqueos) pros.find((p) => p.id === b.profesionalId)!.ocupados.push(b);
+
+  // Citas: se colocan con la misma lógica de huecos que usa la reserva real.
+  const rnd = azar(Number(d0.replaceAll("-", "")));
+  const elegir = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)];
+  const ahora = new Date();
+  let creadas = 0;
+  for (let intento = 0; creadas < nCitas && intento < nCitas * 20; intento++) {
+    const dia = sumarDias(d0, Math.floor(rnd() * 14));
+    const pro = elegir(pros);
+    const servicio = elegir(servicios);
+    const huecos = calcularHuecos({ dia, duracionMin: servicio.duracionMin, tramos: pro.tramos, ocupados: pro.ocupados, desde: aInstante(d0) })
+      .filter((h) => h.getUTCMinutes() % 30 === 0); // agenda realista: en punto o a y media
+    if (!huecos.length) continue;
+    const inicio = elegir(huecos);
+    const fin = finDe(inicio, servicio.duracionMin);
+    const nombre = PACIENTES[creadas % PACIENTES.length];
+    const cancelada = creadas % 13 === 12;
+    await prisma.cita.create({
+      data: {
+        servicioId: servicio.id,
+        profesionalId: pro.id,
+        inicio,
+        fin,
+        estado: cancelada ? "CANCELADA" : fin < ahora ? "ATENDIDA" : "CONFIRMADA",
+        canceladaAt: cancelada ? ahora : null,
+        pacienteNombre: nombre,
+        pacienteTelefono: `6${String(Math.floor(rnd() * 1e8)).padStart(8, "0")}`,
+        pacienteEmail: `${sinAcentos(nombre).toLowerCase().split(" ").slice(0, 2).join(".")}@ejemplo.com`,
+        tokenCancelacion: nuevoToken(),
+        franjas: cancelada ? undefined : { create: franjasDe(inicio, servicio.duracionMin).map((f) => ({ profesionalId: pro.id, inicio: f })) },
+      },
+    });
+    if (!cancelada) pro.ocupados.push({ inicio, fin });
+    creadas++;
+  }
+  return { citas: creadas, bloqueos: bloqueos.length };
+}

@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum EstadoCita {
+  CONFIRMADA
+  CANCELADA
+  ATENDIDA
+}
+
+enum TipoEmail {
+  CONFIRMACION_PACIENTE
+  AVISO_CLINICA
+  RECORDATORIO
+  CANCELACION
+}
+
+enum CanalEmail {
+  RESEND
+  CONSOLA
+}
+
+model Profesional {
+  id       String           @id @default(cuid())
+  slug     String           @unique
+  nombre   String
+  titulo   String
+  bio      String
+  orden    Int              @default(0)
+  activo   Boolean          @default(true)
+  horarios HorarioLaboral[]
+  citas    Cita[]
+  bloqueos Bloqueo[]
+  franjas  FranjaOcupada[]
+
+  @@map("profesionales")
+}
+
+model Servicio {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  nombre      String
+  descripcion String
+  duracionMin Int
+  precioCent  Int
+  orden       Int     @default(0)
+  activo      Boolean @default(true)
+  citas       Cita[]
+
+  @@map("servicios")
+}
+
+// Un tramo de trabajo. L-V son dos filas por día (mañana y tarde).
+model HorarioLaboral {
+  id            String      @id @default(cuid())
+  profesionalId String
+  profesional   Profesional @relation(fields: [profesionalId], references: [id], onDelete: Cascade)
+  diaSemana     Int // 1 = lunes … 7 = domingo
+  minInicio     Int // minutos desde medianoche, hora de Madrid (540 = 9:00)
+  minFin        Int
+
+  @@index([profesionalId, diaSemana])
+  @@map("horarios_laborales")
+}
+
+model Cita {
+  id                    String          @id @default(cuid())
+  servicioId            String
+  servicio              Servicio        @relation(fields: [servicioId], references: [id])
+  profesionalId         String
+  profesional           Profesional     @relation(fields: [profesionalId], references: [id])
+  inicio                DateTime // UTC
+  fin                   DateTime
+  estado                EstadoCita      @default(CONFIRMADA)
+  pacienteNombre        String
+  pacienteTelefono      String
+  pacienteEmail         String
+  tokenCancelacion      String          @unique
+  recordatorioEnviadoAt DateTime?
+  canceladaAt           DateTime?
+  creadaAt              DateTime        @default(now())
+  franjas               FranjaOcupada[]
+  emails                EmailEnviado[]
+
+  @@index([profesionalId, inicio])
+  @@index([estado, inicio])
+  @@map("citas")
+}
+
+// Anti doble reserva: una fila por cada franja de 15 min que ocupa una cita activa.
+// La clave primaria (profesional, inicio) hace imposible que dos citas se pisen.
+model FranjaOcupada {
+  profesionalId String
+  profesional   Profesional @relation(fields: [profesionalId], references: [id], onDelete: Cascade)
+  inicio        DateTime
+  citaId        String
+  cita          Cita        @relation(fields: [citaId], references: [id], onDelete: Cascade)
+
+  @@id([profesionalId, inicio])
+  @@index([citaId])
+  @@map("franjas_ocupadas")
+}
+
+model Bloqueo {
+  id            String       @id @default(cuid())
+  profesionalId String? // null = toda la clínica
+  profesional   Profesional? @relation(fields: [profesionalId], references: [id], onDelete: Cascade)
+  inicio        DateTime
+  fin           DateTime
+  motivo        String
+  creadoAt      DateTime     @default(now())
+
+  @@index([inicio, fin])
+  @@map("bloqueos")
+}
+
+model Usuario {
+  id           String @id @default(cuid())
+  email        String @unique
+  nombre       String
+  passwordHash String
+
+  @@map("usuarios")
+}
+
+model EmailEnviado {
+  id        String     @id @default(cuid())
+  tipo      TipoEmail
+  canal     CanalEmail
+  para      String
+  asunto    String
+  html      String
+  error     String?
+  citaId    String?
+  cita      Cita?      @relation(fields: [citaId], references: [id], onDelete: SetNull)
+  enviadoAt DateTime   @default(now())
+
+  @@index([enviadoAt])
+  @@map("emails_enviados")
+}

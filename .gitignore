@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+
+# base de datos local y cliente generado
+*.db
+*.db-journal
+/src/generated
