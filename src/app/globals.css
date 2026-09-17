@@ -14,7 +14,10 @@
   --color-ambar-claro: #fdf1d6;
   --color-error: #b3261e;
   --color-exito: #1b6e45;
+}
 
+/* inline: las variables de next/font se definen en <html>, no en :root */
+@theme inline {
   --font-sans: var(--font-cuerpo), system-ui, sans-serif;
   --font-display: var(--font-titular), system-ui, sans-serif;
 }
@@ -30,7 +33,7 @@
     line-height: 1.6;
   }
   h1, h2, h3 {
-    font-family: var(--font-display);
+    font-family: var(--font-titular), system-ui, sans-serif;
     line-height: 1.1;
     letter-spacing: -0.02em;
     text-wrap: balance;
@@ -87,7 +90,7 @@
   .prosa h3 { @apply mt-6 mb-2 text-xl font-bold; }
   .prosa p, .prosa ul, .prosa table { @apply mb-4; }
   .prosa ul { @apply list-disc pl-6; }
-  .prosa a { @apply enlace; }
+  .prosa a { @apply font-bold text-cobalto underline underline-offset-4 hover:text-cobalto-oscuro; }
   .prosa th, .prosa td { @apply border border-linea px-3 py-2 text-left align-top text-base; }
 }
 

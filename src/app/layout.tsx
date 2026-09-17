@@ -5,7 +5,7 @@ import "./globals.css";
 
 // next/font aloja las fuentes en el propio dominio: no hay peticiones a Google (RGPD).
 const titular = Bricolage_Grotesque({ variable: "--font-titular", subsets: ["latin"], display: "swap" });
-const cuerpo = Atkinson_Hyperlegible_Next({ variable: "--font-cuerpo", subsets: ["latin"], display: "swap" });
+const cuerpo = Atkinson_Hyperlegible_Next({ variable: "--font-cuerpo", subsets: ["latin"], display: "swap", adjustFontFallback: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
@@ -16,8 +16,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body className={`${titular.variable} ${cuerpo.variable} font-sans antialiased`}>
+    <html lang="es" className={`${titular.variable} ${cuerpo.variable}`}>
+      {/* TEMP-DR */}<head><meta name="darkreader-lock" /></head>
+      <body className="font-sans antialiased">
         <a href="#contenido" className="btn btn-primario sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50">
           Saltar al contenido
         </a>

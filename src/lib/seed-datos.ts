@@ -19,9 +19,9 @@ const SERVICIOS = [
 ];
 
 const PROFESIONALES = [
-  { slug: "laura-serrano", nombre: "Dra. Laura Serrano", titulo: "Podóloga · Directora clínica · Col. n.º 28-0000", sabados: true,
+  { slug: "laura-serrano", nombre: "Dra. Laura Serrano", titulo: "Podóloga y directora clínica. Colegiada n.º 28-0000", sabados: true,
     bio: "Graduada en Podología por la Universidad Complutense y máster en biomecánica. Más de quince años tratando pies de deportistas, mayores y pacientes con pie de riesgo. Fundó la clínica en 2011 con una idea sencilla: explicar bien y tratar sin prisa." },
-  { slug: "marcos-ortiz", nombre: "Dr. Marcos Ortiz", titulo: "Podólogo · Podología deportiva · Col. n.º 28-0001", sabados: false,
+  { slug: "marcos-ortiz", nombre: "Dr. Marcos Ortiz", titulo: "Podólogo, especialista en podología deportiva. Colegiado n.º 28-0001", sabados: false,
     bio: "Graduado en Podología por la Universidad Rey Juan Carlos y especialista en podología deportiva. Corredor popular, se ocupa de los estudios de la pisada y de las plantillas a medida de la clínica." },
 ];
 
