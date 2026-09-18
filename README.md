@@ -79,6 +79,8 @@ npm run dev          # http://localhost:3000
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | No | Si faltan, los mensajes al móvil se escriben en consola. En ambos casos quedan en `mensajes_enviados` y se ven en el panel |
 | `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_PLANTILLA` | No | Número de WhatsApp (`+34…`) y Content SID (`HX…`) de la plantilla aprobada. Sin ellos se va directo al SMS |
 | `TWILIO_SMS_FROM` | No | Número o remitente de los SMS. Sin él no hay SMS de reserva |
+| `ALERTAS_EMAIL` | No | Recibe los errores del servidor y los fallos de los cron. Vacío: solo al log |
+| `RESEND_WEBHOOK_SECRET` | No | Secreto (`whsec_…`) del webhook de rebotes de Resend. Vacío: el webhook lo rechaza todo |
 | `CRON_SECRET` | Sí | Protege `/api/cron/*`. Vercel Cron lo envía como `Authorization: Bearer …` |
 | `RETENCION_*_MESES` | No | Plazos de conservación (ver `.env.example`). Por defecto 12, 12 y 24 meses; los pacientes inactivos no se tocan si no se define su plazo |
 | `RECORDATORIO_VENTANA_HORAS` | No | Por defecto 36 (cron diario). Con un cron horario, pon 24 |
@@ -112,6 +114,9 @@ src/app/(publica)/            web, /reservar y /cita/[token]
 src/app/panel/                login, recuperación y panel (agenda, citas, pacientes, bloqueos, emails, configuración, usuarios)
 src/app/api/cron/             recordatorios y reinicio de la demo
 src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS
+src/app/api/resend/webhook/   webhook: rebotes y quejas de spam
+src/app/api/salud/            para el monitor de disponibilidad
+src/instrumentation.ts        errores del servidor → log y email de alerta
 e2e/                          pruebas de extremo a extremo (Playwright)
 .github/workflows/ci.yml      lint, tests y e2e en cada push
 .github/dependabot.yml        actualizaciones semanales agrupadas
@@ -232,11 +237,29 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recorda
 
 Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de la clínica ficticia: son contenido, y se cambian en `src/app/(publica)/`.
 
+## Antes de abrirlo a pacientes de verdad
+
+Lo que ya está probado y lo que solo se puede probar con las cuentas reales:
+
+| | Estado |
+| --- | --- |
+| Migraciones por HTTP (el protocolo de Turso) | **Probado**: el CI levanta un servidor libSQL y migra una base de datos antigua con datos. Falta verlo una vez contra Turso de verdad; mira el log del primer build |
+| Envío por Resend | El código es el de la documentación de Resend; no hay cuenta en esta demo. Envía un email de prueba y comprueba que llega y que aparece como «Resend» en el panel |
+| Envío por Twilio (WhatsApp y SMS) | **Sin probar contra Twilio**: los tests simulan su API. Hay que probarlo con una cuenta, un número y una plantilla aprobada antes de fiarse |
+| Webhooks de Twilio y de Resend | Las firmas se comprueban con el algoritmo documentado de cada uno y los tests lo verifican, pero no contra peticiones reales |
+
+Puesta en marcha, además de lo de [Instalarlo en una clínica real](#instalarlo-en-una-clínica-real):
+
+1. **Correo**: dominio propio verificado en Resend con SPF y DKIM, y un registro DMARC (`v=DMARC1; p=quarantine; rua=mailto:…`). Sin esto, los recordatorios van a spam. En Resend → Webhooks, apunta `email.bounced` y `email.complained` a `/api/resend/webhook` y pon su secreto en `RESEND_WEBHOOK_SECRET`: los rebotes salen como fallidos en «Emails y mensajes».
+2. **Avisos**: `ALERTAS_EMAIL` recibe los errores del servidor (`src/instrumentation.ts`) y los fallos de los cron, como mucho 10 a la hora. Y un monitor de disponibilidad gratuito (UptimeRobot, Better Stack) contra `/api/salud`, que responde 200 solo si la app llega a la base de datos. Para agrupar errores, trazas y errores del navegador, el siguiente paso es Sentry.
+3. **Entorno de pruebas**: otro proyecto de Vercel con **su propia** base de datos de Turso y `MODO_DEMO=1`. No compartas `DATABASE_URL` con producción: el build migra la base de datos a la que apunta.
+4. **Copias de seguridad**: programa el `.dump` de más arriba y restáuralo una vez en una base de datos nueva.
+5. **Lo que no es código**: contrato de encargo del tratamiento con Vercel, Turso, Resend y Twilio (los cuatro lo ofrecen) y región de la UE en los que dejan elegir; registro de actividades de tratamiento; decidir con la asesoría `RETENCION_PACIENTES_MESES`; y que la asesoría revise los textos de `/legal`, que son un punto de partida. Los textos de la web pública siguen hablando de la clínica ficticia.
+
 ## Para convertirlo en un producto real
 
 Lo que esta demo deja fuera a propósito:
 
-- **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Segundo factor** (2FA) para administración.
-- Oferta automática del hueco liberado al primero de la lista de espera, señal al reservar con Stripe, facturación (mejor integrarse con un programa homologado para Verifactu que construirla), monitorización de errores.
+- Oferta automática del hueco liberado al primero de la lista de espera, señal al reservar con Stripe, facturación (mejor integrarse con un programa homologado para Verifactu que construirla), Sentry.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

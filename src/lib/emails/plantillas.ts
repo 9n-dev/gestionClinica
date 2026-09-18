@@ -47,6 +47,10 @@ const boton = (href: string, texto: string) =>
 const nombrePila = (c: CitaCompleta) => esc(c.pacienteNombre.split(" ")[0]);
 
 export const plantillas = {
+  alerta: (asunto: string, detalle: string) => ({
+    asunto: `[${CLINICA.nombre}] ${asunto}`,
+    html: marco(esc(asunto), `<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;margin:0">${esc(detalle.slice(0, 4000))}</pre>`, "mantienes esta instalación"),
+  }),
   acceso: (nombre: string, url: string, invitacion: boolean) => ({
     asunto: invitacion ? `Tu acceso al panel de ${CLINICA.nombre}` : "Cambia tu contraseña del panel",
     html: marco(

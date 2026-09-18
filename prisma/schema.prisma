@@ -21,6 +21,7 @@ enum TipoEmail {
   CANCELACION
   MODIFICACION
   ACCESO // invitación al panel o cambio de contraseña
+  ALERTA // aviso técnico a quien mantiene la instalación
 }
 
 enum FormaPago {
@@ -197,16 +198,18 @@ model Usuario {
 }
 
 model EmailEnviado {
-  id        String     @id @default(cuid())
-  tipo      TipoEmail
-  canal     CanalEmail
-  para      String
-  asunto    String
-  html      String
-  error     String?
-  citaId    String?
-  cita      Cita?      @relation(fields: [citaId], references: [id], onDelete: SetNull)
-  enviadoAt DateTime   @default(now())
+  id          String     @id @default(cuid())
+  tipo        TipoEmail
+  canal       CanalEmail
+  para        String
+  asunto      String
+  html        String
+  error       String?
+  // Id del email en Resend: con él, el webhook de rebotes apunta aquí que no llegó.
+  proveedorId String?    @unique
+  citaId      String?
+  cita        Cita?      @relation(fields: [citaId], references: [id], onDelete: SetNull)
+  enviadoAt   DateTime   @default(now())
 
   @@index([enviadoAt])
   @@map("emails_enviados")

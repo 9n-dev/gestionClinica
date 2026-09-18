@@ -13,6 +13,11 @@ jobs:
   comprobar:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      # Servidor libSQL (el de Turso): el test de migraciones las aplica también por HTTP, como en producción.
+      libsql:
+        image: ghcr.io/tursodatabase/libsql-server:latest
+        ports: ["8080:8080"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -22,6 +27,8 @@ jobs:
       - run: npm ci # el postinstall genera el cliente de Prisma
       - run: npm run lint
       - run: npm test
+        env:
+          LIBSQL_HTTP_URL: http://127.0.0.1:8080
       - run: npx playwright install --with-deps chromium
       # Siembra una base de datos nueva, hace el build de producción (que también comprueba los tipos) y lo prueba en un navegador.
       - run: npm run test:e2e

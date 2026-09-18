@@ -6,7 +6,7 @@ import { formatoFechaHora } from "@/lib/fechas";
 
 export const metadata: Metadata = { title: "Emails y mensajes" };
 
-const TIPOS = { CONFIRMACION_PACIENTE: "Confirmación al paciente", AVISO_CLINICA: "Aviso a la clínica", RECORDATORIO: "Recordatorio", CANCELACION: "Cancelación", MODIFICACION: "Cambio de hora", ACCESO: "Acceso al panel" };
+const TIPOS = { CONFIRMACION_PACIENTE: "Confirmación al paciente", AVISO_CLINICA: "Aviso a la clínica", RECORDATORIO: "Recordatorio", CANCELACION: "Cancelación", MODIFICACION: "Cambio de hora", ACCESO: "Acceso al panel", ALERTA: "Alerta técnica" };
 
 const CANALES = { WHATSAPP: "WhatsApp", SMS: "SMS", CONSOLA: "Consola" };
 

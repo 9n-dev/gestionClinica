@@ -1,4 +1,4 @@
-import { cronAutorizado } from "@/lib/cron";
+import { conAlerta, cronAutorizado } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { emailRecordatorio } from "@/lib/emails/enviar";
 import { plantillas } from "@/lib/emails/plantillas";
@@ -15,7 +15,10 @@ const ventanaHoras = () => Number(process.env.RECORDATORIO_VENTANA_HORAS) || 36;
 
 export async function GET(req: Request) {
   if (!cronAutorizado(req)) return new Response("No autorizado", { status: 401 });
+  return conAlerta("de recordatorios", recordarYLimpiar);
+}
 
+async function recordarYLimpiar() {
   const ahora = new Date();
   const limite = new Date(ahora.getTime() + ventanaHoras() * 3_600_000);
   const citas = await prisma.cita.findMany({
@@ -36,5 +39,5 @@ export async function GET(req: Request) {
   }
   // Es el cron diario: de paso, la limpieza. Contadores del límite de intentos y plazos de conservación de datos.
   await borrarIntentosViejos();
-  return Response.json({ pendientes: citas.length, enviados, retencion: await aplicarRetencion() });
+  return { pendientes: citas.length, enviados, retencion: await aplicarRetencion() };
 }

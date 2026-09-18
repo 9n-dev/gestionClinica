@@ -4,10 +4,15 @@ import { afterAll, expect, it } from "vitest";
 import { migrar } from "./migraciones";
 
 const RUTA = `/tmp/podologia-test-migraciones-${process.pid}.db`;
-const URL = `file:${RUTA}`;
 afterAll(() => rmSync(RUTA, { force: true }));
 
-it("una base de datos anterior al registro de migraciones, con datos, recibe solo las que le faltan y no pierde nada", async () => {
+// El mismo caso contra un fichero SQLite y, si hay un servidor libSQL a mano, por HTTP: es el protocolo de Turso, y donde
+// importa que las claves foráneas se apaguen en la misma conexión. En el CI lo levanta un contenedor (LIBSQL_HTTP_URL);
+// en local: docker run -p 8080:8080 ghcr.io/tursodatabase/libsql-server y LIBSQL_HTTP_URL=http://127.0.0.1:8080 npm test
+// (con el servidor recién arrancado: el test necesita la base de datos vacía).
+const DESTINOS = [["fichero SQLite", `file:${RUTA}`], ...(process.env.LIBSQL_HTTP_URL ? [["servidor libSQL por HTTP", process.env.LIBSQL_HTTP_URL]] : [])];
+
+it.each(DESTINOS)("%s: una base de datos anterior al registro de migraciones, con datos, recibe solo las que le faltan y no pierde nada", async (_, URL) => {
   // Como la dejaba el antiguo crearTablasSiFaltan: las dos primeras migraciones, sin apuntar en ningún sitio.
   const db = createClient({ url: URL });
   for (const m of ["20260917202839_inicial", "20260918104847_panel_avanzado"]) await db.executeMultiple(readFileSync(`prisma/migrations/${m}/migration.sql`, "utf8"));

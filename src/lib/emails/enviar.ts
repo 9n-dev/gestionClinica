@@ -16,6 +16,7 @@ export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: st
   // Los pacientes del seed usan @ejemplo.com: jamás se les envía nada real.
   const real = !!process.env.RESEND_API_KEY && !e.para.endsWith("@ejemplo.com");
   let error: string | null = null;
+  let proveedorId: string | undefined;
   try {
     if (real) {
       const r = await new Resend(process.env.RESEND_API_KEY).emails.send({
@@ -25,6 +26,7 @@ export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: st
         html: e.html,
       });
       if (r.error) error = r.error.message;
+      proveedorId = r.data?.id; // con él, el webhook de rebotes sabrá a qué email se refiere
     } else {
       console.log(`[email:${e.tipo}] para=${e.para} · ${e.asunto}`);
     }
@@ -33,7 +35,7 @@ export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: st
   }
   if (error) console.error(`[email:${e.tipo}] fallo al enviar a ${e.para}: ${error}`);
   try {
-    await prisma.emailEnviado.create({ data: { ...e, html: real && secreto ? e.html.replaceAll(secreto, "[enlace de un solo uso: no se guarda]") : e.html, canal: real ? "RESEND" : "CONSOLA", error } });
+    await prisma.emailEnviado.create({ data: { ...e, html: real && secreto ? e.html.replaceAll(secreto, "[enlace de un solo uso: no se guarda]") : e.html, canal: real ? "RESEND" : "CONSOLA", error, proveedorId } });
   } catch (err) {
     console.error("[email] no se pudo registrar el email", err);
   }

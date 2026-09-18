@@ -10,6 +10,11 @@ test("todas las respuestas llevan las cabeceras de seguridad y la app funciona b
     expect(h["x-powered-by"], ruta).toBeUndefined();
   }
 
+  // Lo que mira un monitor de disponibilidad, y los webhooks: sin firma no entra nadie
+  expect(await (await request.get("/api/salud")).json()).toEqual({ ok: true });
+  expect((await request.post("/api/resend/webhook", { data: { type: "email.bounced", data: { email_id: "x" } } })).status()).toBe(403);
+  expect((await request.post("/api/twilio/estado", { form: { MessageSid: "SM1", MessageStatus: "failed" } })).status()).toBe(403);
+
   // Si la CSP bloqueara algo propio (scripts de Next, estilos, el correo en su iframe), el navegador lo diría en la consola
   const violaciones: string[] = [];
   page.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) violaciones.push(m.text()); });
