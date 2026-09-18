@@ -6,6 +6,18 @@ export const esquemaLogin = z.object({
   password: z.string().min(1).max(200),
 });
 
+export const esquemaEmail = z.object({ email: z.email("Escribe un email válido").max(200).transform((e) => e.toLowerCase()) });
+
+export const esquemaPasswordNueva = z
+  .object({ password: z.string().min(10, "Mínimo 10 caracteres").max(200), repetir: z.string() })
+  .refine((d) => d.password === d.repetir, "Las dos contraseñas no coinciden");
+
+export const esquemaUsuario = esquemaEmail.extend({
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(80),
+  rol: z.enum(["ADMIN", "EQUIPO"]),
+  profesionalId: z.string().max(40), // "" = no es un profesional de la clínica
+});
+
 const dia = z.string().refine(esDia, "Fecha no válida");
 
 // Solo datos de contacto: no se pide ningún dato de salud.

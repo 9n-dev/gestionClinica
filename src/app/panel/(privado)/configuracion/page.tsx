@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { requerirSesion } from "@/lib/auth";
+import { requerirAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { FormularioHorario, FormularioProfesional, FormularioServicio } from "./formularios";
 
 export const metadata: Metadata = { title: "Configuración" };
 
 export default async function Configuracion() {
-  await requerirSesion();
+  await requerirAdmin();
   const [servicios, profesionales] = await Promise.all([
     prisma.servicio.findMany({ orderBy: { orden: "asc" } }),
     prisma.profesional.findMany({ orderBy: { orden: "asc" }, include: { horarios: true } }),

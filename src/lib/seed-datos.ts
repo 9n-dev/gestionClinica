@@ -61,7 +61,9 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   await prisma.usuario.deleteMany();
 
   const passwordHash = hashSync(USUARIO_DEMO.password, 10);
-  await prisma.usuario.create({ data: { email: USUARIO_DEMO.email, nombre: "Recepción (demo)", passwordHash } });
+  // demo: true los protege en el panel de usuarios (ni borrar, ni cambiar rol, ni cambiar contraseña).
+  await prisma.usuario.create({ data: { email: USUARIO_DEMO.email, nombre: "Recepción (demo)", passwordHash, demo: true } });
+  await prisma.usuario.create({ data: { email: "admin@podologiaserrano.es", nombre: "Administración (demo)", passwordHash, demo: true, rol: "ADMIN" } });
 
   const servicios = await Promise.all(SERVICIOS.map((s, orden) => prisma.servicio.create({ data: { ...s, orden } })));
 
@@ -74,7 +76,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
     if (sabados) tramos.push({ diaSemana: 6, minInicio: 9 * 60, minFin: 13 * 60 });
     const pro = await prisma.profesional.create({ data: { ...p, orden, horarios: { create: tramos } } });
     // Cada profesional tiene su usuario (misma contraseña que el demo); su agenda se abre filtrada.
-    await prisma.usuario.create({ data: { email: `${p.slug.split("-")[0]}@podologiaserrano.es`, nombre: p.nombre, passwordHash, profesionalId: pro.id } });
+    await prisma.usuario.create({ data: { email: `${p.slug.split("-")[0]}@podologiaserrano.es`, nombre: p.nombre, passwordHash, demo: true, profesionalId: pro.id } });
     pros.push({ ...pro, tramos, ocupados: [] as Intervalo[] });
   }
   const [laura, marcos] = pros;

@@ -12,8 +12,9 @@ const ENLACES = [
   { href: "/panel/citas/nueva", texto: "Nueva cita" },
   { href: "/panel/pacientes", texto: "Pacientes" },
   { href: "/panel/bloqueos", texto: "Bloqueos" },
-  { href: "/panel/configuracion", texto: "Configuración" },
   { href: "/panel/emails", texto: "Emails enviados" },
+  { href: "/panel/configuracion", texto: "Configuración", admin: true },
+  { href: "/panel/usuarios", texto: "Usuarios", admin: true },
 ];
 
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {
@@ -26,12 +27,12 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
           <p className="font-display text-lg font-bold">Panel de {CLINICA.nombre}</p>
           <nav aria-label="Panel" className="flex-1">
             <ul className="flex flex-wrap gap-1">
-              {ENLACES.map((e) => <li key={e.href}><Link href={e.href} className={item}>{e.texto}</Link></li>)}
+              {ENLACES.filter((e) => !e.admin || sesion.user.rol === "ADMIN").map((e) => <li key={e.href}><Link href={e.href} className={item}>{e.texto}</Link></li>)}
             </ul>
           </nav>
           <Link href="/" className={item}>Ver la web</Link>
           <form action={salir}>
-            <button className={`${item} cursor-pointer`}>Salir<span className="sr-only"> ({sesion.user?.email})</span></button>
+            <button className={`${item} cursor-pointer`}>Salir<span className="sr-only"> ({sesion.user.email})</span></button>
           </form>
         </div>
       </header>

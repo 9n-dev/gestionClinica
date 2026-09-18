@@ -33,6 +33,7 @@ export const USUARIO_DEMO = { email: "demo@podologiaserrano.es", password: "demo
 // Todos con la misma contraseña. Los de los profesionales abren la agenda filtrada por su columna.
 export const USUARIOS_DEMO = [
   { email: USUARIO_DEMO.email, quien: "recepción, ve toda la agenda" },
+  { email: "admin@podologiaserrano.es", quien: "administración: además, configuración y usuarios" },
   { email: "laura@podologiaserrano.es", quien: "Dra. Serrano" },
   { email: "marcos@podologiaserrano.es", quien: "Dr. Ortiz" },
 ];

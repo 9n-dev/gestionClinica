@@ -8,8 +8,10 @@ const clinica = () => process.env.EMAIL_CLINICA || "clinica@podologiaserrano.es"
 /**
  * Envía con Resend si hay API key; si no, escribe en consola. Siempre queda registrado
  * en emails_enviados. Nunca lanza: un fallo de email no debe tumbar una reserva.
+ * `secreto` (un enlace de un solo uso) se tacha del registro cuando el email sale de verdad, para que nadie
+ * lo lea en el panel. Sin Resend se deja: el registro es entonces la única forma de ver el email.
  */
-export async function enviarEmail(e: { tipo: TipoEmail; para: string; asunto: string; html: string; citaId?: string }) {
+export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: string; asunto: string; html: string; citaId?: string; secreto?: string }) {
   // Los pacientes del seed usan @ejemplo.com: jamás se les envía nada real.
   const real = !!process.env.RESEND_API_KEY && !e.para.endsWith("@ejemplo.com");
   let error: string | null = null;
@@ -30,7 +32,7 @@ export async function enviarEmail(e: { tipo: TipoEmail; para: string; asunto: st
   }
   if (error) console.error(`[email:${e.tipo}] fallo al enviar a ${e.para}: ${error}`);
   try {
-    await prisma.emailEnviado.create({ data: { ...e, canal: real ? "RESEND" : "CONSOLA", error } });
+    await prisma.emailEnviado.create({ data: { ...e, html: real && secreto ? e.html.replaceAll(secreto, "[enlace de un solo uso: no se guarda]") : e.html, canal: real ? "RESEND" : "CONSOLA", error } });
   } catch (err) {
     console.error("[email] no se pudo registrar el email", err);
   }

@@ -20,6 +20,12 @@ enum TipoEmail {
   RECORDATORIO
   CANCELACION
   MODIFICACION
+  ACCESO // invitación al panel o cambio de contraseña
+}
+
+enum Rol {
+  ADMIN // además: configuración y usuarios
+  EQUIPO // agenda, citas, pacientes, bloqueos y emails
 }
 
 enum CanalEmail {
@@ -144,12 +150,17 @@ model Bloqueo {
 }
 
 model Usuario {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  nombre        String
-  passwordHash  String
-  profesionalId String? // si está ligado a un profesional, su agenda se abre filtrada
-  profesional   Profesional? @relation(fields: [profesionalId], references: [id], onDelete: SetNull)
+  id              String       @id @default(cuid())
+  email           String       @unique
+  nombre          String
+  passwordHash    String
+  rol             Rol          @default(EQUIPO)
+  demo            Boolean      @default(false) // usuarios de la demo pública: no se pueden borrar ni cambiar
+  // Enlace de un solo uso para poner contraseña (invitación o recuperación). Se guarda solo el hash.
+  accesoTokenHash String?      @unique
+  accesoExpira    DateTime?
+  profesionalId   String? // si está ligado a un profesional, su agenda se abre filtrada
+  profesional     Profesional? @relation(fields: [profesionalId], references: [id], onDelete: SetNull)
 
   @@map("usuarios")
 }

@@ -16,7 +16,7 @@ export const urlCita = (token: string) => `${URL_BASE()}/cita/${token}`;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function marco(titulo: string, cuerpo: string) {
+function marco(titulo: string, cuerpo: string, motivo = "se ha gestionado una cita con este email") {
   return `<!doctype html><html lang="es"><body style="margin:0;background:#f4f7fa;font-family:Arial,Helvetica,sans-serif;color:#15203b;font-size:16px;line-height:1.5">
 <div style="max-width:560px;margin:0 auto;padding:24px">
 <p style="font-size:18px;font-weight:bold;color:#2346c4;margin:0 0 16px">${CLINICA.nombre}</p>
@@ -25,7 +25,7 @@ function marco(titulo: string, cuerpo: string) {
 ${cuerpo}
 </div>
 <p style="font-size:13px;color:#55617a;margin:16px 0 0">${CLINICA.nombre} · ${DIRECCION_COMPLETA} · ${CLINICA.telefono}<br>
-Recibes este mensaje porque se ha gestionado una cita con este email. Demo con datos ficticios.</p>
+Recibes este mensaje porque ${motivo}. Demo con datos ficticios.</p>
 </div></body></html>`;
 }
 
@@ -47,6 +47,18 @@ const boton = (href: string, texto: string) =>
 const nombrePila = (c: CitaCompleta) => esc(c.pacienteNombre.split(" ")[0]);
 
 export const plantillas = {
+  acceso: (nombre: string, url: string, invitacion: boolean) => ({
+    asunto: invitacion ? `Tu acceso al panel de ${CLINICA.nombre}` : "Cambia tu contraseña del panel",
+    html: marco(
+      invitacion ? "Te han dado acceso al panel" : "Cambia tu contraseña",
+      `<p>Hola, ${esc(nombre.split(" ")[0])}. ${invitacion ? "Ya tienes usuario en el panel de la clínica. Solo falta que elijas tu contraseña." : "Alguien, esperamos que tú, ha pedido cambiar la contraseña de tu usuario del panel."}</p>
+${boton(url, invitacion ? "Elegir mi contraseña" : "Cambiar mi contraseña")}
+<p style="margin:20px 0 0">Si el botón no funciona, copia esta dirección en el navegador:<br><span style="word-break:break-all">${url}</span></p>
+<p>El enlace vale una sola vez y caduca en ${invitacion ? "3 días" : "1 hora"}.${invitacion ? "" : " Si no has sido tú, no hagas nada: tu contraseña sigue siendo la misma."}</p>`,
+      "tienes usuario en el panel de la clínica",
+    ),
+  }),
+
   confirmacionPaciente: (c: CitaCompleta) => ({
     asunto: `Cita confirmada: ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)}`,
     html: marco("Tu cita está confirmada", `<p>Hola, ${nombrePila(c)}. Te esperamos en la clínica:</p>${ficha(c)}
