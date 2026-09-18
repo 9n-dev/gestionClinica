@@ -1,29 +1,48 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FormularioAuto } from "@/components/FormularioAuto";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { diaDe, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio } from "@/lib/fechas";
-import { cancelarDesdePanel, marcarAtendida } from "../../../acciones";
+import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
+import { huecosEnRango } from "@/lib/reservas";
+import { cambiarEstado, cancelarDesdePanel } from "../../../acciones";
+import { FormularioMover, FormularioNotas } from "./formularios";
 
 export const metadata: Metadata = { title: "Detalle de cita" };
 
 const ESTADOS = {
   CONFIRMADA: { texto: "Confirmada", clase: "bg-cielo text-cobalto-oscuro" },
   ATENDIDA: { texto: "Atendida", clase: "bg-pino-claro text-exito" },
+  NO_PRESENTADA: { texto: "No se presentó", clase: "bg-ambar-claro text-tinta" },
   CANCELADA: { texto: "Cancelada", clase: "bg-white text-error border border-error" },
 };
 
-export default async function DetalleCita({ params }: { params: Promise<{ id: string }> }) {
+type Params = { creada?: string; movida?: string; dia?: string; profesional?: string };
+
+export default async function DetalleCita({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Params> }) {
   await requerirSesion();
   const { id } = await params;
+  const sp = await searchParams;
   const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } } } });
   if (!cita) notFound();
   const estado = ESTADOS[cita.estado];
+  const aviso = sp.creada ? "Cita creada." : sp.movida ? "Cita movida." : null;
+
+  // Cambiar hora: día y profesional por parámetro, horas libres calculadas sin contar esta misma cita
+  let mover: { profesionales: { slug: string; nombre: string }[]; profesional: string; dia: string; horas: string[] } | null = null;
+  if (cita.estado === "CONFIRMADA") {
+    const profesionales = await prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, select: { slug: true, nombre: true } });
+    const profesional = profesionales.find((p) => p.slug === sp.profesional)?.slug ?? cita.profesional.slug;
+    const dia = esDia(sp.dia) ? sp.dia : diaDe(cita.inicio);
+    const huecos = (await huecosEnRango({ desde: dia, dias: 1, duracionMin: cita.servicio.duracionMin, profesionalSlug: profesional, desdePanel: true, excluirCitaId: id })).get(dia) ?? [];
+    mover = { profesionales, profesional, dia, horas: huecos.map((h) => formatoHora(h.inicio)) };
+  }
 
   return (
     <div className="max-w-3xl">
       <p><Link href={`/panel/agenda?fecha=${diaDe(cita.inicio)}`} className="enlace">Volver a la agenda de ese día</Link></p>
+      {aviso && <p role="status" className="mt-4 rounded-md bg-pino-claro px-4 py-2 font-bold text-exito">{aviso}</p>}
       <h1 className="mt-4 text-3xl font-bold">{cita.pacienteNombre}</h1>
       <p className="mt-2"><span className={`inline-block rounded px-2.5 py-0.5 font-bold ${estado.clase}`}>{estado.texto}</span></p>
 
@@ -37,7 +56,7 @@ export default async function DetalleCita({ params }: { params: Promise<{ id: st
         <dt className="text-pizarra">Teléfono</dt>
         <dd><a href={`tel:+34${cita.pacienteTelefono}`} className="enlace">{cita.pacienteTelefono}</a></dd>
         <dt className="text-pizarra">Email</dt>
-        <dd><a href={`mailto:${cita.pacienteEmail}`} className="enlace break-all">{cita.pacienteEmail}</a></dd>
+        <dd>{cita.pacienteEmail ? <a href={`mailto:${cita.pacienteEmail}`} className="enlace break-all">{cita.pacienteEmail}</a> : <span className="text-pizarra">Sin email: no recibe confirmación ni recordatorio</span>}</dd>
         <dt className="text-pizarra">Reservada</dt>
         <dd>{formatoFechaHora(cita.creadaAt)}</dd>
         {cita.canceladaAt && (<><dt className="text-pizarra">Cancelada</dt><dd>{formatoFechaHora(cita.canceladaAt)}</dd></>)}
@@ -46,8 +65,11 @@ export default async function DetalleCita({ params }: { params: Promise<{ id: st
 
       {cita.estado === "CONFIRMADA" && (
         <div className="mt-6 flex flex-wrap items-start gap-4">
-          <form action={marcarAtendida.bind(null, cita.id)}>
+          <form action={cambiarEstado.bind(null, cita.id, "ATENDIDA")}>
             <button className="btn btn-primario">Marcar como atendida</button>
+          </form>
+          <form action={cambiarEstado.bind(null, cita.id, "NO_PRESENTADA")}>
+            <button className="btn btn-secundario">No se presentó</button>
           </form>
           <details className="rounded-md border border-linea bg-white px-4 py-2.5">
             <summary className="cursor-pointer font-bold text-error">Cancelar la cita</summary>
@@ -58,6 +80,37 @@ export default async function DetalleCita({ params }: { params: Promise<{ id: st
           </details>
         </div>
       )}
+
+      {mover && (
+        <section aria-labelledby="t-mover" className="mt-8 rounded-lg border border-linea bg-white p-6">
+          <h2 id="t-mover" className="text-xl font-bold">Cambiar hora</h2>
+          <p className="mt-1 text-pizarra">También puedes arrastrar la cita en la agenda. Si el paciente tiene email, se le avisa del cambio.</p>
+          <FormularioAuto action={`/panel/citas/${cita.id}`} className="mt-4 flex flex-wrap gap-3">
+            <div>
+              <label htmlFor="dia" className="etiqueta">Día</label>
+              <input id="dia" name="dia" type="date" defaultValue={mover.dia} min={hoy()} className="campo" />
+            </div>
+            <div>
+              <label htmlFor="profesional" className="etiqueta">Profesional</label>
+              <select id="profesional" name="profesional" defaultValue={mover.profesional} className="campo">
+                {mover.profesionales.map((p) => <option key={p.slug} value={p.slug}>{p.nombre}</option>)}
+              </select>
+            </div>
+            <noscript><button className="btn btn-secundario self-end">Ver horas libres</button></noscript>
+          </FormularioAuto>
+          <p className="mt-4 first-letter:uppercase">{formatoDia(mover.dia, { weekday: "long", day: "numeric", month: "long" })}: {mover.horas.length ? `${mover.horas.length} horas libres` : "sin horas libres"}</p>
+          {mover.horas.length > 0 && (
+            <div className="mt-2">
+              <FormularioMover id={cita.id} profesional={mover.profesional} dia={mover.dia} horas={mover.horas} horaActual={formatoHora(cita.inicio)} />
+            </div>
+          )}
+        </section>
+      )}
+
+      <section aria-labelledby="t-notas" className="mt-8">
+        <h2 id="t-notas" className="sr-only">Notas</h2>
+        <FormularioNotas id={cita.id} notas={cita.notas} />
+      </section>
 
       <section aria-labelledby="t-emails" className="mt-10">
         <h2 id="t-emails" className="text-xl font-bold">Emails de esta cita</h2>

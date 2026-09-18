@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { crearBloqueo, type EstadoBloqueo } from "../../acciones";
+import { crearBloqueo, type Estado } from "../../acciones";
 
 export function FormularioBloqueo({ profesionales, porDefecto }: { profesionales: { id: string; nombre: string }[]; porDefecto: string }) {
-  const [estado, accion, enviando] = useActionState<EstadoBloqueo, FormData>(crearBloqueo, {});
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(crearBloqueo, {});
   return (
     <form action={accion} className="grid gap-4 rounded-lg border border-linea bg-white p-6 sm:grid-cols-2">
       <div className="sm:col-span-2">

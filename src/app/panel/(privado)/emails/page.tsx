@@ -6,7 +6,7 @@ import { formatoFechaHora } from "@/lib/fechas";
 
 export const metadata: Metadata = { title: "Emails enviados" };
 
-const TIPOS = { CONFIRMACION_PACIENTE: "Confirmación al paciente", AVISO_CLINICA: "Aviso a la clínica", RECORDATORIO: "Recordatorio", CANCELACION: "Cancelación" };
+const TIPOS = { CONFIRMACION_PACIENTE: "Confirmación al paciente", AVISO_CLINICA: "Aviso a la clínica", RECORDATORIO: "Recordatorio", CANCELACION: "Cancelación", MODIFICACION: "Cambio de hora" };
 
 export default async function Emails() {
   await requerirSesion();

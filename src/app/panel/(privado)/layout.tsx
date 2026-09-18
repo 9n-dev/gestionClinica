@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 
 const ENLACES = [
   { href: "/panel/agenda", texto: "Agenda" },
+  { href: "/panel/citas/nueva", texto: "Nueva cita" },
   { href: "/panel/bloqueos", texto: "Bloqueos" },
+  { href: "/panel/configuracion", texto: "Configuración" },
   { href: "/panel/emails", texto: "Emails enviados" },
 ];
 

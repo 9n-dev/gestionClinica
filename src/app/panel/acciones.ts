@@ -1,26 +1,74 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { aInstante } from "@/lib/fechas";
-import { cancelarCita } from "@/lib/reservas";
-import { esquemaBloqueo } from "@/lib/validacion";
+import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
+import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
+import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaProfesional, esquemaServicio } from "@/lib/validacion";
+
+export type Estado = { error?: string; ok?: string; campos?: Record<string, string[] | undefined>; valores?: Record<string, string> };
+
+const primerError = (e: z.ZodError) => e.issues[0]?.message ?? "Datos no válidos";
+const refrescar = () => revalidatePath("/panel", "layout");
+
+// ---------- Citas ----------
 
 export async function cancelarDesdePanel(id: string) {
   await requerirSesion();
   await cancelarCita({ id });
-  revalidatePath("/panel", "layout");
+  refrescar();
 }
 
-export async function marcarAtendida(id: string) {
+export async function cambiarEstado(id: string, estado: "ATENDIDA" | "NO_PRESENTADA") {
   await requerirSesion();
-  await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado: "ATENDIDA" } });
-  revalidatePath("/panel", "layout");
+  await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado } });
+  refrescar();
 }
 
-export type EstadoBloqueo = { error?: string; ok?: string };
+export async function guardarNotas(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaNotas.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  await prisma.cita.update({ where: { id }, data: { notas: datos.data.notas || null } });
+  refrescar();
+  return { ok: "Notas guardadas." };
+}
+
+export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const valores = Object.fromEntries([...fd].filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  const datos = esquemaCitaPanel.safeParse(valores);
+  if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
+  const r = await crearCita(datos.data, true);
+  if (!r.ok) return { error: r.error, valores };
+  refrescar();
+  redirect(`/panel/citas/${r.id}?creada=1`);
+}
+
+export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaMover.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  const r = await moverCita(id, datos.data);
+  if (!r.ok) return { error: r.error };
+  refrescar();
+  redirect(`/panel/citas/${id}?movida=1`);
+}
+
+/** Arrastrar y soltar en la agenda. Recibe el instante de destino en ISO. */
+export async function moverArrastrando(id: string, profesionalSlug: string, inicioIso: string) {
+  await requerirSesion();
+  const inicio = new Date(inicioIso);
+  if (isNaN(inicio.getTime())) return { ok: false as const, error: "Hora no válida" };
+  const r = await moverCita(id, { profesional: profesionalSlug, dia: diaDe(inicio), hora: formatoHora(inicio) });
+  if (r.ok) refrescar();
+  return r;
+}
+
+// ---------- Bloqueos ----------
 
 // "2026-09-18T13:00" (hora de Madrid, de un <input type="datetime-local">) → instante UTC
 const aInstanteLocal = (s: string) => {
@@ -29,10 +77,10 @@ const aInstanteLocal = (s: string) => {
   return aInstante(dia, h * 60 + m);
 };
 
-export async function crearBloqueo(_: EstadoBloqueo, fd: FormData): Promise<EstadoBloqueo> {
+export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
   await requerirSesion();
   const datos = esquemaBloqueo.safeParse(Object.fromEntries(fd));
-  if (!datos.success) return { error: Object.values(z.flattenError(datos.error).fieldErrors).flat()[0] ?? "Datos no válidos" };
+  if (!datos.success) return { error: primerError(datos.error) };
   const inicio = aInstanteLocal(datos.data.inicio);
   const fin = aInstanteLocal(datos.data.fin);
   if (fin <= inicio) return { error: "El final tiene que ser posterior al inicio." };
@@ -42,7 +90,7 @@ export async function crearBloqueo(_: EstadoBloqueo, fd: FormData): Promise<Esta
   const afectadas = await prisma.cita.count({
     where: { estado: "CONFIRMADA", inicio: { lt: fin }, fin: { gt: inicio }, ...(profesionalId ? { profesionalId } : {}) },
   });
-  revalidatePath("/panel", "layout");
+  refrescar();
   return {
     ok: afectadas
       ? `Bloqueo creado. Ojo: hay ${afectadas} ${afectadas === 1 ? "cita confirmada" : "citas confirmadas"} en ese periodo; no se cancelan solas, revísalas en la agenda.`
@@ -53,5 +101,54 @@ export async function crearBloqueo(_: EstadoBloqueo, fd: FormData): Promise<Esta
 export async function borrarBloqueo(id: string) {
   await requerirSesion();
   await prisma.bloqueo.deleteMany({ where: { id } });
-  revalidatePath("/panel", "layout");
+  refrescar();
+}
+
+// ---------- Configuración ----------
+
+export async function guardarServicio(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaServicio.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  const { precio, ...resto } = datos.data;
+  await prisma.servicio.update({ where: { id }, data: { ...resto, precioCent: Math.round(precio * 100) } });
+  revalidatePath("/", "layout");
+  return { ok: "Guardado." };
+}
+
+export async function guardarProfesional(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaProfesional.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  await prisma.profesional.update({ where: { id }, data: datos.data });
+  revalidatePath("/", "layout");
+  return { ok: "Guardado." };
+}
+
+const aMinutos = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+};
+
+export async function guardarHorario(profesionalId: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaHorario.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  const tramos = [];
+  for (const d of [1, 2, 3, 4, 5, 6, 7]) {
+    for (const t of ["m", "t"]) {
+      const i = datos.data[`${t}${d}i`];
+      const f = datos.data[`${t}${d}f`];
+      if (!i && !f) continue;
+      if (!i || !f) return { error: "Cada tramo necesita hora de inicio y de fin." };
+      if (aMinutos(f) <= aMinutos(i)) return { error: `El tramo ${minutosAHora(aMinutos(i))}–${minutosAHora(aMinutos(f))} acaba antes de empezar.` };
+      tramos.push({ diaSemana: d, minInicio: aMinutos(i), minFin: aMinutos(f) });
+    }
+  }
+  await prisma.$transaction([
+    prisma.horarioLaboral.deleteMany({ where: { profesionalId } }),
+    prisma.horarioLaboral.createMany({ data: tramos.map((t) => ({ ...t, profesionalId })) }),
+  ]);
+  revalidatePath("/", "layout");
+  return { ok: "Horario guardado. Las citas que ya existían no cambian." };
 }
