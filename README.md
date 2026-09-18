@@ -30,13 +30,23 @@ Las capturas se regeneran con `node scripts/capturas.mjs` (también sirve para r
 - `admin@podologiaserrano.es`: administración. Además ve «Configuración» y «Usuarios».
 - `laura@podologiaserrano.es` y `marcos@podologiaserrano.es`: cada profesional entra con su agenda filtrada.
 
-La misma base de código sirve para la demo y para una clínica real: lo decide la variable `MODO_DEMO` (ver [Instalarlo en una clínica real](#instalarlo-en-una-clínica-real)).
+La misma base de código sirve para la demo y para una clínica real: lo decide la variable `MODO_DEMO` (ver [Instalación](docs/instalacion.md#instalarlo-en-una-clínica-real)).
+
+## Documentación
+
+| | |
+| --- | --- |
+| **[Manual del panel](docs/manual-del-panel.md)** | Pantalla a pantalla, con capturas: la reserva que ve el paciente, y agenda, citas, pacientes, lista de espera, caja, bloqueos, estadísticas, configuración y usuarios |
+| **[Arquitectura](docs/arquitectura.md)** | Modelo de datos y las decisiones que importan: dobles reservas imposibles, identidad del paciente, roles y sesiones, protección de datos, límite de intentos, zonas horarias |
+| **[Instalación y despliegue](docs/instalacion.md)** | En local, variables de entorno, Vercel + Turso, instalarlo en una clínica real y qué está probado y qué no |
+| **[Pruebas](docs/pruebas.md)** | Qué comprueba cada test, la auditoría de accesibilidad, el CI y la revisión independiente del código |
+| **[Lo que queda fuera](docs/pendiente.md)** | Lo que no está hecho a propósito, y por qué |
 
 ## Qué incluye
 
 - **Web pública**: inicio, servicios y precios, equipo, contacto con mapa, aviso legal, privacidad y política de cookies con banner funcional (el mapa de Google solo se carga si se aceptan las cookies de terceros).
 - **Reserva en `/reservar`**: servicio → profesional (o «me da igual») → día y hora con huecos reales → datos de contacto → confirmación. No se pide ningún dato de salud.
-- **Sin dobles reservas, garantizado por la base de datos** (ver más abajo).
+- **Sin dobles reservas, garantizado por la base de datos** ([cómo](docs/arquitectura.md#dobles-reservas)).
 - **Emails** de confirmación, aviso a la clínica, cancelación y recordatorio, con enlace de cancelación por token.
 - **Recordatorio al móvil** por WhatsApp y, si no llega, por SMS (Twilio). Llega también a quien reservó por teléfono y no dio email.
 - **Panel en `/panel`**:
@@ -70,222 +80,14 @@ Requisitos: Node.js 20.9 o superior (probado con Node 22).
 ```bash
 npm install          # instala y genera el cliente de Prisma
 cp .env.example .env # y cambia AUTH_SECRET (npx auth secret) y CRON_SECRET
-npm run seed         # crea las tablas si no existen y carga los datos de la demo
+npm run seed         # crea las tablas y carga los datos de la demo (necesita MODO_DEMO=1, que ya viene en .env.example)
 npm run dev          # http://localhost:3000
 ```
 
-| Comando | Qué hace |
-| --- | --- |
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` / `npm start` | Build y servidor de producción |
-| `npm run migrar` | Aplica las migraciones pendientes a la base de datos de `DATABASE_URL` (local o Turso). `npm run build` lo ejecuta antes de compilar |
-| `npm run crear-admin -- email "Nombre"` | Crea (o recupera) un administrador e imprime un enlace de un solo uso para que elija su contraseña |
-| `npm run seed` | **Solo con `MODO_DEMO=1`.** Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
-| `npm test` | Tests de la lógica: disponibilidad, horario público, minutos disponibles para la ocupación y lectura del CSV de pacientes (puros) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad y supresión de pacientes, enlaces de acceso, límite de intentos, plazos de conservación, migración de una base de datos antigua con datos, y mensajes al móvil con la API de Twilio simulada |
-| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login, accesibilidad con axe en todas las pantallas, descarga y supresión de datos, recordatorios, mover una cita en pantalla táctil, estadísticas e importación de pacientes) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
-| `npm run lint` | ESLint |
+Comandos, variables de entorno y despliegue: [Instalación](docs/instalacion.md).
 
-## Variables de entorno
+## Licencia
 
-| Variable | Obligatoria | Descripción |
-| --- | --- | --- |
-| `MODO_DEMO` | No | `1` en la demo: contraseñas a la vista en el login, `npm run seed`, reinicio diario y avisos de demo. Vacía en una clínica real: el seed y el cron de reinicio se niegan a ejecutarse |
-| `CLINICA_*` | En una clínica real | Nombre, razón social, NIF, dirección, teléfono, email y coordenadas (lista completa en `.env.example`). Sin definir, salen los de la clínica ficticia |
-| `DATABASE_URL` | Sí | `file:./dev.db` en local; `libsql://…` de Turso en producción |
-| `DATABASE_AUTH_TOKEN` | Solo con Turso | Token de la base de datos de Turso |
-| `AUTH_SECRET` | Sí | Secreto de Auth.js. Genera uno con `npx auth secret` |
-| `APP_URL` | Sí | URL pública, para los enlaces de los emails |
-| `RESEND_API_KEY` | No | Si está vacía, los emails se escriben en consola. En ambos casos quedan registrados en la tabla `emails_enviados` y se ven en `/panel/emails` |
-| `EMAIL_FROM` | Con Resend | Remitente, con dominio verificado en Resend |
-| `EMAIL_CLINICA` | No | Dirección que recibe los avisos de la clínica |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | No | Si faltan, los mensajes al móvil se escriben en consola. En ambos casos quedan en `mensajes_enviados` y se ven en el panel |
-| `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_PLANTILLA` | No | Número de WhatsApp (`+34…`) y Content SID (`HX…`) de la plantilla aprobada. Sin ellos se va directo al SMS |
-| `TWILIO_SMS_FROM` | No | Número o remitente de los SMS. Sin él no hay SMS de reserva |
-| `ALERTAS_EMAIL` | No | Recibe los errores del servidor y los fallos de los cron. Vacío: solo al log |
-| `RESEND_WEBHOOK_SECRET` | No | Secreto (`whsec_…`) del webhook de rebotes de Resend. Vacío: el webhook lo rechaza todo |
-| `CRON_SECRET` | Sí | Protege `/api/cron/*`. Vercel Cron lo envía como `Authorization: Bearer …` |
-| `RETENCION_*_MESES` | No | Plazos de conservación (ver `.env.example`). Por defecto 12, 12 y 24 meses; los pacientes inactivos no se tocan si no se define su plazo |
-| `RECORDATORIO_VENTANA_HORAS` | No | Por defecto 36 (cron diario). Con un cron horario, pon 24 |
+Sin licencia: el código está publicado para que se pueda leer y valorar, no para reutilizarlo. Todos los derechos reservados. Si te interesa usarlo en una clínica, escríbeme.
 
-Los pacientes del seed usan direcciones `@ejemplo.com`: a esas direcciones nunca se envía nada real aunque Resend esté configurado.
-
-## Cómo está hecho
-
-```
-prisma/schema.prisma          modelo de datos
-prisma/seed.ts                CLI del seed
-src/lib/disponibilidad.ts     cálculo de huecos y solapes (función pura, con tests)
-src/lib/reservas.ts           huecos con datos reales, crear, mover y cancelar citas
-src/lib/pacientes.ts          normalización del nombre (identidad y búsqueda)
-src/lib/auth.ts               Auth.js, usuario de la petición y roles
-src/lib/permisos.ts           quién puede modificar las citas y bloqueos de quién
-src/lib/acceso.ts             enlaces de un solo uso para poner contraseña
-src/lib/limite.ts             límite de intentos
-src/lib/auditoria.ts          registro de actividad
-src/lib/retencion.ts          plazos de conservación (cron diario)
-src/lib/estadisticas.ts       números del panel de estadísticas
-src/lib/importar.ts           lectura del CSV de pacientes (codificación, separador, columnas)
-src/lib/migraciones.ts        ejecutor de migraciones (build, seed y CLI)
-src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_DEMO
-src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
-src/lib/seed-datos.ts         datos de la demo (los usa el seed y el cron de reinicio)
-src/lib/emails/               plantillas y envío (Resend o consola)
-src/lib/mensajes.ts           WhatsApp y SMS con Twilio (o consola), webhook de estado y su firma
-src/lib/fechas.ts             utilidades de fecha en Europe/Madrid
-src/app/(publica)/            web, /reservar y /cita/[token]
-src/app/panel/acciones/       acciones de servidor, por área: citas, pacientes, bloqueos, configuración, usuarios y sesión
-src/app/panel/                login, recuperación y panel (agenda, citas, pacientes, bloqueos, emails, configuración, usuarios)
-src/app/api/cron/             recordatorios y reinicio de la demo
-src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS
-src/app/api/resend/webhook/   webhook: rebotes y quejas de spam
-src/app/api/salud/            para el monitor de disponibilidad
-src/instrumentation.ts        errores del servidor → log y email de alerta
-e2e/                          pruebas de extremo a extremo (Playwright), con auditoría de accesibilidad (axe)
-scripts/capturas.mjs          capturas de todas las pantallas
-.github/workflows/ci.yml      lint, tests y e2e en cada push
-.github/dependabot.yml        actualizaciones semanales agrupadas
-next.config.ts                cabeceras de seguridad (CSP, HSTS…)
-```
-
-### Dobles reservas
-
-SQLite no tiene restricciones de exclusión por rango, así que cada cita activa ocupa filas en `franjas_ocupadas`, una por cada 15 minutos, con clave primaria `(profesionalId, inicio)`. La cita y sus franjas se insertan en una única transacción: si dos personas confirman a la vez horas que se pisan, la segunda viola la clave primaria y no se guarda nada. Al cancelar se borran las franjas y el hueco vuelve a ofrecerse. Con «me da igual», si el primer profesional acaba de ocuparse se intenta con el siguiente. Mover una cita (formulario o arrastre) libera las franjas viejas y ocupa las nuevas en una sola transacción: si el destino está pillado, la cita se queda donde estaba. Esa transacción vuelve a exigir que la cita siga confirmada: si el paciente la cancela mientras recepción la mueve, gana la cancelación y no queda ningún hueco ocupado por una cita cancelada.
-
-### Pacientes
-
-Un paciente es un teléfono más un nombre normalizado (sin acentos ni mayúsculas), con restricción única en la base de datos. El mismo móvil con otro nombre es otro paciente: es el caso de quien reserva para su hijo. Como a quien reserva por la web no se le verifica nada, una reserva web solo rellena el email de la ficha si faltaba; cambiarlo es cosa de recepción. La cita se enlaza a su paciente con `connectOrCreate` dentro de la misma transacción que ocupa las franjas, y conserva además lo que se escribió al reservar. La migración que introdujo la tabla crea los pacientes de las citas que ya existían, con una normalización en SQL que es más corta que la del código: solo quita las tildes del español y no junta espacios dobles. Una base de datos que ya tuviera citas a nombre de «Jordi Pàmies» le habría hecho una ficha que su siguiente reserva no encuentra, y saldría duplicada (para eso está la fusión). No afecta a ninguna instalación nueva, y la migración no se toca porque ya está aplicada: Prisma compara su huella. Si alguien reserva una vez como «Pepe» y otra como «José» salen dos fichas: la ficha avisa de las que comparten teléfono o nombre y recepción puede fusionarlas (las citas, la lista de espera y el historial de accesos pasan a la que se queda). Solo se fusiona entre esos posibles duplicados, para que un despiste no mezcle a dos desconocidos. También hay alta a mano, sin cita.
-
-### Importar pacientes
-
-CSV y no `.xlsx` a propósito: leer Excel exige una librería (la de npm más conocida está abandonada y con avisos de seguridad) y desde Excel es «Guardar como → CSV». A cambio, el lector se ocupa de lo que de verdad rompe estas importaciones: el Excel español separa con punto y coma y guarda en Windows-1252, no en UTF-8, así que se prueba UTF-8 estricto y, si los bytes no lo son, se lee como Windows-1252 (tildes y eñes intactas en los dos casos). Las columnas se reconocen por su nombre (Nombre, Apellidos, Teléfono o Móvil, Email o Correo, Notas u Observaciones). Va en dos pasos: comprobar, que no escribe nada y lista las filas con problemas con su número de línea, y confirmar. Las filas confirmadas vuelven del navegador, así que el servidor las valida otra vez con el mismo esquema que el resto de la app. La identidad es la de siempre (teléfono + nombre normalizado): repetir la importación no duplica a nadie.
-
-### Usuarios, roles y contraseñas
-
-Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (además, configuración, usuarios, estadísticas y actividad). Ser profesional no es un rol: es estar ligado a un profesional. Todos ven la agenda entera, pero quien es de Equipo y está ligado a un profesional solo **modifica** sus propias citas y bloqueos (`src/lib/permisos.ts`); recepción, que no está ligada a nadie, y administración gestionan lo de todos. La regla se comprueba en cada acción del servidor, no solo escondiendo botones. La cookie de sesión solo lleva el id; el rol se lee de la base de datos en cada petición (una consulta, con `cache()` de React), así que borrar a alguien o quitarle el rol surte efecto al momento y no cuando caduque la sesión.
-
-Cambiar la contraseña (desde «Mi cuenta» o por enlace) cierra todas las sesiones de ese usuario: el login guarda su hora en la cookie y `Usuario.sesionesDesde` marca desde cuándo valen. No se usa el `iat` del JWT porque Auth.js lo renueva en cada visita.
-
-Las contraseñas solo las escribe su dueño. Dar de alta a alguien le envía un enlace de un solo uso (3 días); «he olvidado mi contraseña» envía otro (1 hora) y responde lo mismo exista o no el email. En la base de datos solo está el hash SHA-256 del token, y cuando el email sale de verdad por Resend el enlace se tacha del registro de `/panel/emails`. Sin Resend se deja, porque ese registro es la única forma de leer el email: así se puede probar en la demo. Por eso los emails de acceso (y las alertas técnicas, que llevan trazas) solo los ve administración en «Emails y mensajes»: con ese enlace se pone la contraseña de la cuenta.
-
-En la demo no sale nada de verdad aunque haya claves de Resend o Twilio: con las contraseñas a la vista, cualquiera enviaría emails y SMS con la marca de la clínica. Y en producción la app no arranca con los secretos de ejemplo de `.env.example`.
-
-En la demo, los cuatro usuarios sembrados llevan `demo = true` y no se pueden cambiar, borrar ni recuperar, para que un visitante no deje fuera a los demás. Los usuarios que cree un visitante sí, y desaparecen con el reinicio nocturno.
-
-### Estadísticas
-
-- **Los ingresos no se mueven al cambiar tarifas**: cada cita guarda el precio que tenía el servicio al reservar (`Cita.precioCent`). Solo cuentan las citas atendidas. Al lado va lo **cobrado** de verdad (`Cita.cobradoCent`, que puede llevar descuento) y lo atendido que sigue sin cobrar.
-- **Ocupación** = minutos citados / minutos disponibles, donde lo disponible es el horario de cada profesional menos los bloqueos, contado por franjas de 15 minutos como la reserva (así dos bloqueos que se pisan no restan dos veces). Se calcula con el horario de hoy: si alguien cambió de horario a mitad de un mes pasado, la ocupación de ese mes es aproximada.
-- **Ausencias** = no presentadas sobre las que debían haberse atendido; las canceladas a tiempo van aparte, porque liberaron el hueco.
-- Los gráficos son HTML y CSS, sin librería: una sola serie en el cobalto del sitio con el mes elegido destacado sobre gris, cifra solo en el mes elegido y en el mejor, burbuja al pasar el ratón o con el foco del teclado, texto alternativo en cada marca y una tabla equivalente debajo de cada gráfico. Las variaciones llevan flecha y texto además de color.
-
-### Recordatorios al móvil
-
-El cron de recordatorios avisa al móvil de todos los pacientes con cita (todos tienen teléfono; email, no) y además por email a quien lo tenga. Con Twilio, por su API REST y sin SDK:
-
-1. **WhatsApp** con una plantilla aprobada: fuera de una conversación abierta por el paciente, WhatsApp no admite texto libre. La plantilla se crea en Twilio con cinco huecos, en este orden: `{{1}}` nombre, `{{2}}` día, `{{3}}` hora, `{{4}}` profesional, `{{5}}` enlace para cancelar.
-2. **SMS de reserva** si el WhatsApp falla. El fallo puede venir en el acto (Twilio rechaza la petición) o después: Twilio acepta un WhatsApp para un número que no tiene WhatsApp y avisa más tarde. Para ese caso, cada envío lleva `StatusCallback` a `/api/twilio/estado`; el webhook comprueba la firma `X-Twilio-Signature`, apunta el error y envía el SMS una sola vez aunque Twilio repita el aviso.
-3. El SMS sale sin á, í, ó, ú: un solo carácter fuera del alfabeto GSM-7 lo pasa a UCS-2, con 70 caracteres por segmento en vez de 160, y se cobra el triple. La é y la ñ sí están en GSM-7 y se quedan.
-
-Sin credenciales, los mensajes se escriben en consola y quedan en el panel, como los emails. **El envío real no está probado contra Twilio** (no hay cuenta en esta demo): los tests simulan su API y comprueban peticiones, reserva, webhook y firma. Antes de usarlo con pacientes hay que probarlo con una cuenta y una plantilla reales.
-
-### Protección de datos
-
-Una agenda de podología con notas es dato de salud, así que también se apunta quién **mira**, no solo quién cambia. `src/lib/auditoria.ts` anota cada entrada al panel, cada ficha o cita abierta (una vez cada 15 minutos por persona y ficha, para que guardar unas notas no cuente como otro acceso), cada descarga y cada cambio. Solo administración ve el registro, en «Actividad», y desde cada ficha se llega a lo suyo. El registro nunca guarda datos del paciente, solo ids, fechas y nombres de campos: así sobrevive a una supresión sin conservar lo que se pidió borrar. Un test de extremo a extremo comprueba, de paso, que recorrer la lista de pacientes no se apunta como haber abierto sus fichas.
-
-- **Acceso y portabilidad**: «Descargar sus datos» genera un JSON con la ficha, todas sus citas y los emails que se le han enviado.
-- **Retención**: el cron diario borra lo que cumple su plazo (`src/lib/retencion.ts`): citas canceladas y copia de emails y mensajes a los 12 meses, registro de actividad a los 24. Es lo que promete la política de privacidad. Anonimizar a los pacientes que llevan años sin venir también está, pero **apagado hasta que la clínica fije `RETENCION_PACIENTES_MESES`**: es irreversible y el plazo es una decisión suya, no un valor por defecto. Lo que hace el sistema queda en «Actividad» a nombre de «sistema».
-- **Supresión**: solo administración, y solo si no tiene citas pendientes. **Anonimiza en vez de borrar**: se van nombre, teléfono, email, notas y los emails guardados de sus citas (llevan su nombre en el texto); las citas pasadas se quedan como «Paciente eliminado» para que la agenda y los números de meses anteriores cuadren. Si vuelve a reservar, es un paciente nuevo.
-
-### Cabeceras y dependencias
-
-`next.config.ts` pone en todas las respuestas CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy`. La CSP es la que se puede tener sin nonces: Next inyecta scripts en línea y la app usa atributos `style`, así que `script-src` y `style-src` llevan `'unsafe-inline'`. No frena un XSS en línea (de eso se ocupa React, que escapa lo que pinta), pero sí cierra scripts, marcos y envíos de formularios a otros orígenes, `<base>`, `<object>` y que otra web meta el panel en un iframe. Un test de extremo a extremo recorre la app con la consola abierta y falla si la CSP bloquea algo propio. Pasar a nonces (middleware) es el siguiente paso si se quiere una CSP estricta.
-
-Dependabot abre cada semana una PR con parches y versiones menores agrupados; el CI dice si se puede mezclar. Los saltos de versión mayor (de Next, React o Prisma, pero también de TypeScript o ESLint) se deciden a mano.
-
-`npm audit` avisa de 6 vulnerabilidades y ninguna se ejecuta en esta app: `mysql2` y `deepmerge-ts` los arrastra el CLI de Prisma (la base de datos es SQLite/libSQL, el controlador de MySQL no se carga nunca y el CLI solo corre al instalar y en local), y `postcss` va dentro de Next y solo procesa el CSS propio al compilar, mientras que sus avisos son sobre CSS de un atacante. Lo que propone `npm audit fix --force` es bajar Prisma a la versión 6 o saltar a Next 16: cambiar el stack para no arreglar ningún riesgo real.
-
-### Límite de intentos
-
-Contadores por clave y ventana de tiempo en la tabla `intentos`, porque en Vercel las funciones no comparten memoria y así no hace falta otro servicio. Login: 10 contraseñas falladas por IP cada 15 minutos. El intento se apunta antes de mirar la contraseña, en una escritura atómica, y se devuelve si acierta: apuntándolo después, una ráfaga de peticiones simultáneas pasaría entera. Se compara siempre contra un hash, exista o no el usuario, para que el tiempo de respuesta no delate qué emails tienen cuenta. Todo dentro de `authorize()` para cubrir también a quien llame directo a `/api/auth`. Es por IP y no por email a propósito: con un tope por email, cualquiera podría dejar sin acceso a un compañero fallando adrede. Reserva web: 6 por IP y hora, además del tope de 3 citas pendientes por email y del campo trampa. Recuperación de contraseña: 5 por IP y 3 por destinatario a la hora. El cron diario borra los contadores viejos. La IP sale de `x-forwarded-for`, que en Vercel escribe la plataforma; detrás de otro proxy hay que comprobar que también lo sobrescribe.
-
-### Horas y zonas horarias
-
-Todo se guarda en UTC y se calcula y muestra en `Europe/Madrid`, porque los servidores de Vercel corren en UTC. Los tests cubren el cambio de hora de octubre.
-
-### Reglas de reserva
-
-Huecos cada 15 minutos, con un mínimo de 2 horas de antelación y un máximo de 60 días (constantes en `src/lib/clinica.ts`). Máximo 3 citas pendientes por email. Cada profesional tiene marcados los servicios que hace (en la demo, los dos hacen todos): la reserva solo le ofrece para esos, tanto si se le elige como con «me da igual», y el filtro está en el mismo sitio donde se calculan los huecos, así que vale igual para la web, el panel, crear y mover.
-
-## Despliegue en Vercel
-
-Un fichero SQLite no sirve en Vercel (el sistema de ficheros es de solo lectura y efímero), así que en producción se usa [Turso](https://turso.tech), que es SQLite alojado: mismo esquema y mismo código, solo cambia la URL.
-
-1. **Crea la base de datos** (plan gratuito):
-   ```bash
-   turso db create podologia-serrano
-   turso db show podologia-serrano --url      # → DATABASE_URL
-   turso db tokens create podologia-serrano   # → DATABASE_AUTH_TOKEN
-   ```
-2. **Crea las tablas y carga la demo** (`npm run seed` aplica las migraciones y siembra) desde tu máquina, apuntando a Turso:
-   ```bash
-   DATABASE_URL="libsql://…" DATABASE_AUTH_TOKEN="…" npm run seed
-   ```
-3. **Importa el repositorio en Vercel** y define las variables de entorno de la tabla de arriba (`APP_URL` con el dominio final).
-4. **Despliega.** `vercel.json` ya declara dos cron jobs:
-   - `/api/cron/reset-demo`, cada día a las 03:00 UTC: reinicia los datos de la demo.
-   - `/api/cron/recordatorios`, cada día a las 06:00 UTC: además de la limpieza diaria (límite de intentos y plazos de conservación), envía los recordatorios de las citas de las próximas 36 horas. Es idempotente (`recordatorioEnviadoAt`), así que puede ejecutarse las veces que haga falta.
-
-   El plan Hobby de Vercel solo permite crons diarios. En el plan Pro puedes pasar el de recordatorios a horario (`0 * * * *`) con `RECORDATORIO_VENTANA_HORAS=24` para avisar justo 24 horas antes.
-
-Para probar un cron a mano:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recordatorios
-```
-
-**Arrastrar y soltar** usa la API nativa de HTML5, sin librerías, y esa API no existe en pantallas táctiles. Para la tablet de recepción está «Mover una cita»: se toca la cita y luego la hora nueva, y solo se ofrecen los huecos donde cabe. Los destinos son botones, así que el mismo modo sirve con teclado.
-
-**Cambios de esquema:** en local, `npx prisma migrate dev` (siempre trabaja contra `dev.db`) y después `npx prisma generate`. En producción no hay que hacer nada: `npm run build` empieza por `npm run migrar`, que aplica a la base de datos de `DATABASE_URL` las migraciones que le falten, así que cada despliegue la deja al día. `prisma migrate deploy` no habla con Turso; por eso hay un ejecutor propio en `src/lib/migraciones.ts`:
-
-- Lo aplicado se apunta en la tabla `_migraciones`. Una base de datos anterior a esa tabla se reconoce por su esquema y recibe solo lo que le falta.
-- Cada migración va en una transacción y con las claves foráneas apagadas **en la misma conexión** (`client.migrate()` de libSQL). Importa: las migraciones que rehacen una tabla hacen `DROP TABLE`, y con Turso por HTTP un `PRAGMA foreign_keys=OFF` suelto no vale para la sentencia siguiente, de modo que el `DROP` de `citas` borraría en cascada las franjas ocupadas. Hay un test que migra una base de datos antigua con datos y comprueba que no se pierde nada.
-- Ojo con los despliegues de vista previa de Vercel: si comparten `DATABASE_URL` con producción, migran producción. Dales su propia base de datos.
-
-**Copias de seguridad:** Turso guarda el historial y permite restaurar a un punto en el tiempo (`turso db create restaurada --from-db podologia-serrano --timestamp …`). Para tener además una copia fuera: `turso db shell podologia-serrano .dump > copia.sql`. Una copia que no se ha probado a restaurar no cuenta: restáurala en una base de datos nueva y arranca la app contra ella antes de darla por buena.
-
-## Instalarlo en una clínica real
-
-1. Base de datos en Turso y proyecto en Vercel, como arriba, pero **sin** `MODO_DEMO` y con las variables `CLINICA_*`, `RESEND_API_KEY` y `EMAIL_FROM` de la clínica. No ejecutes `npm run seed` (se negará).
-2. Despliega: el build crea las tablas.
-3. Desde tu máquina, apuntando a Turso: `DATABASE_URL="libsql://…" DATABASE_AUTH_TOKEN="…" APP_URL="https://…" npm run crear-admin -- ana@clinica.es "Ana García"`. Abre el enlace que imprime y elige la contraseña.
-4. En el panel, «Configuración»: da de alta profesionales, sus horarios y los servicios. En «Usuarios», al resto del equipo.
-5. Puedes quitar el cron `reset-demo` de `vercel.json`; si se queda, responde 404.
-
-Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de la clínica ficticia: son contenido, y se cambian en `src/app/(publica)/`.
-
-## Antes de abrirlo a pacientes de verdad
-
-Lo que ya está probado y lo que solo se puede probar con las cuentas reales:
-
-| | Estado |
-| --- | --- |
-| Migraciones por HTTP (el protocolo de Turso) | **Probado**: el CI levanta un servidor libSQL y migra una base de datos antigua con datos. Falta verlo una vez contra Turso de verdad; mira el log del primer build |
-| Envío por Resend | El código es el de la documentación de Resend; no hay cuenta en esta demo. Envía un email de prueba y comprueba que llega y que aparece como «Resend» en el panel |
-| Envío por Twilio (WhatsApp y SMS) | **Sin probar contra Twilio**: los tests simulan su API. Hay que probarlo con una cuenta, un número y una plantilla aprobada antes de fiarse |
-| Webhooks de Twilio y de Resend | Las firmas se comprueban con el algoritmo documentado de cada uno y los tests lo verifican, pero no contra peticiones reales |
-
-Puesta en marcha, además de lo de [Instalarlo en una clínica real](#instalarlo-en-una-clínica-real):
-
-1. **Correo**: dominio propio verificado en Resend con SPF y DKIM, y un registro DMARC (`v=DMARC1; p=quarantine; rua=mailto:…`). Sin esto, los recordatorios van a spam. En Resend → Webhooks, apunta `email.bounced` y `email.complained` a `/api/resend/webhook` y pon su secreto en `RESEND_WEBHOOK_SECRET`: los rebotes salen como fallidos en «Emails y mensajes».
-2. **Avisos**: `ALERTAS_EMAIL` recibe los errores del servidor (`src/instrumentation.ts`) y los fallos de los cron, como mucho 10 a la hora. Y un monitor de disponibilidad gratuito (UptimeRobot, Better Stack) contra `/api/salud`, que responde 200 solo si la app llega a la base de datos. Para agrupar errores, trazas y errores del navegador, el siguiente paso es Sentry.
-3. **Entorno de pruebas**: otro proyecto de Vercel con **su propia** base de datos de Turso y `MODO_DEMO=1`. No compartas `DATABASE_URL` con producción: el build migra la base de datos a la que apunta.
-4. **Copias de seguridad**: programa el `.dump` de más arriba y restáuralo una vez en una base de datos nueva.
-5. **Lo que no es código**: contrato de encargo del tratamiento con Vercel, Turso, Resend y Twilio (los cuatro lo ofrecen) y región de la UE en los que dejan elegir; registro de actividades de tratamiento; decidir con la asesoría `RETENCION_PACIENTES_MESES`; y que la asesoría revise los textos de `/legal`, que son un punto de partida. Los textos de la web pública siguen hablando de la clínica ficticia.
-
-## Para convertirlo en un producto real
-
-Lo que esta demo deja fuera a propósito:
-
-- **Segundo factor** (2FA) para administración.
-- Oferta automática del hueco liberado al primero de la lista de espera, señal al reservar con Stripe, facturación (mejor integrarse con un programa homologado para Verifactu que construirla), Sentry.
-- Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.
+La clínica, los profesionales y los pacientes que aparecen son ficticios.

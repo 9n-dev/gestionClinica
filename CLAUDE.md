@@ -1,9 +1,9 @@
 Web + citas online + panel de gestión para una clínica de podología ficticia. Empezó como demo de portfolio y hoy es un producto instalable que podría vender a clínicas pequeñas. Debe seguir pareciéndolo: nada de maqueta.
 
 ## Estado
-- Qué hace y cómo está hecho: `README.md` («Qué incluye» y «Cómo está hecho»). Es la fuente de verdad; este fichero solo dice cómo trabajar.
+- Qué hace: `README.md`. Cómo está hecho y por qué: `docs/arquitectura.md`. Pantalla a pantalla: `docs/manual-del-panel.md`. Tests: `docs/pruebas.md`. Instalación y despliegue: `docs/instalacion.md`. Lo que queda fuera: `docs/pendiente.md`. Son la fuente de verdad; este fichero solo dice cómo trabajar.
 - `MODO_DEMO=1` en local. Sin esa variable la app se comporta como instalación real (sin contraseñas en el login, y `npm run seed` y el cron de reinicio se niegan).
-- **Sin desplegar en Vercel, por decisión mía.** No lo propongas ni lo prepares salvo que lo pida. El repo de GitHub (privado, `9n-dev/gestionClinica`) sí se mantiene al día.
+- **Sin desplegar en Vercel, por decisión mía.** No lo propongas ni lo prepares salvo que lo pida. El repo de GitHub (`9n-dev/gestionClinica`, público y sin licencia) sí se mantiene al día: nada de secretos ni datos reales en commits, capturas o tests.
 - Sin probar contra servicios reales: migraciones en Turso (sí contra un servidor libSQL por HTTP, en el CI), envíos por Resend y Twilio, y sus webhooks.
 
 ## Contexto de negocio (los datos de la demo)
@@ -30,8 +30,8 @@ Web + citas online + panel de gestión para una clínica de podología ficticia.
 - **Test primero.** La lógica, en `src/lib/*.test.ts` contra una SQLite temporal; cada flujo nuevo, con su e2e. Un fallo se reproduce con un test que falle antes de arreglarlo.
   - Los specs de Playwright comparten base de datos: no afirmes valores absolutos que otro spec o el seed alteran, y tras un clic que navega, `waitForURL` antes de leer la URL.
 - **Antes de cada commit:** `npm run lint`, `npm test` y `npm run test:e2e`. Los e2e corren contra el build de producción y no ven si el modo desarrollo se rompe: tras tocar `instrumentation.ts`, middleware o `next.config.ts`, arranca `next dev` una vez.
-- **Tras cada bloque grande, revisión independiente** con un agente que no haya visto cómo se escribió el código, en solo lectura: una pasada de corrección y otra de seguridad que intente refutar el modelo que declara el README. La primera vez encontró 17 fallos reales que ni los tests ni el CI veían.
+- **Tras cada bloque grande, revisión independiente** con un agente que no haya visto cómo se escribió el código, en solo lectura: una pasada de corrección y otra de seguridad que intente refutar el modelo que declara `docs/arquitectura.md`. La primera vez encontró 17 fallos reales que ni los tests ni el CI veían.
 - **Server Actions:** cada una autentica y autoriza por sí misma (son endpoints públicos), y sus argumentos se validan en tiempo de ejecución: el tipo de TypeScript no existe en el servidor.
 - **Datos de pacientes:** ni en logs, ni en el registro de actividad, ni en URLs. Lo que se añada con datos suyos tiene que entrar en la descarga y en la supresión (`src/lib/pacientes.ts`) y en los plazos de `src/lib/retencion.ts`.
 - **Interfaz:** accesible (axe sin infracciones), usable en móvil y tablet, y sin textos que prometan lo que el código no hace. Para verla: `node scripts/capturas.mjs` saca todas las pantallas.
-- Commits pequeños en español, con el porqué en el mensaje. Push a `main` al cerrar cada bloque. README al día con lo que se añade y con lo que se deja fuera a propósito.
+- Commits pequeños en español, con el porqué en el mensaje. Push a `main` al cerrar cada bloque. README y `docs/` al día con lo que se añade y con lo que se deja fuera a propósito; si cambia una pantalla, regenerar su captura (`node scripts/capturas.mjs docs/capturas <url> <nombre>`).
