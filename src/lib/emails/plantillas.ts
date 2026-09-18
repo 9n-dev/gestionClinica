@@ -1,4 +1,4 @@
-import { CLINICA, DIRECCION_COMPLETA } from "../clinica";
+import { CLINICA, DIRECCION_COMPLETA, URL_BASE } from "../clinica";
 import { formatoFechaLarga, formatoHora, formatoPrecio } from "../fechas";
 
 export type CitaCompleta = {
@@ -12,7 +12,6 @@ export type CitaCompleta = {
   profesional: { nombre: string };
 };
 
-const URL_BASE = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 export const urlCita = (token: string) => `${URL_BASE()}/cita/${token}`;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);

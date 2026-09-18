@@ -17,6 +17,12 @@ export const CLINICA = {
   ],
 } as const;
 
+// Mismo horario que arriba, en el formato de schema.org. Coordenadas aproximadas (la dirección es ficticia).
+export const HORARIO_SCHEMA = ["Mo-Fr 09:00-14:00", "Mo-Fr 16:00-20:00", "Sa 09:00-13:00"];
+export const COORDENADAS = { latitude: 40.3083, longitude: -3.7327 };
+
+export const URL_BASE = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
 export const DIRECCION_COMPLETA = `${CLINICA.direccion}, ${CLINICA.cp} ${CLINICA.ciudad} (${CLINICA.provincia})`;
 
 // Reglas de reserva online

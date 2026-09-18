@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Bricolage_Grotesque } from "next/font/google";
-import { CLINICA } from "@/lib/clinica";
+import { CLINICA, URL_BASE } from "@/lib/clinica";
 import "./globals.css";
 
 // next/font aloja las fuentes en el propio dominio: no hay peticiones a Google (RGPD).
@@ -8,7 +8,7 @@ const titular = Bricolage_Grotesque({ variable: "--font-titular", subsets: ["lat
 const cuerpo = Atkinson_Hyperlegible_Next({ variable: "--font-cuerpo", subsets: ["latin"], display: "swap", adjustFontFallback: false });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(URL_BASE()),
   title: { default: `${CLINICA.nombre} · Clínica podológica en Getafe`, template: `%s · ${CLINICA.nombre}` },
   description: "Clínica de podología en Getafe (Madrid): quiropodia, estudio de la pisada y plantillas a medida. Pide cita online en un minuto.",
   openGraph: { locale: "es_ES", type: "website", siteName: CLINICA.nombre },
