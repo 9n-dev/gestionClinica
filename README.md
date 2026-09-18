@@ -24,6 +24,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
   - **Importar pacientes** desde un CSV de Excel (solo administración): primero comprueba el fichero y enseña qué entraría y qué filas tienen problemas; al confirmar, no duplica a quien ya existe.
+  - **Lista de espera**: se apunta desde la ficha a quien quiere venir antes. Cuando se cancela una cita, su detalle y el email de aviso a la clínica dicen a quién de la lista le encaja ese hueco (le cabe el servicio, lo hace ese profesional y lo pidió a él o le daba igual), por orden de llegada; «Darle esta cita» abre el formulario con todo puesto y, al crearla, sale de la lista. Decide una persona, no un mensaje automático: no todos los huecos valen para todos.
   - Bloqueo de horas (comidas, vacaciones) con aviso si hay citas dentro, y los **festivos nacionales** del año con un botón (Viernes Santo incluido, calculado); los autonómicos y locales se añaden a mano.
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
   - **Estadísticas** (solo administración): ingresos, citas atendidas, ocupación de la agenda y ausencias del mes, comparados con el anterior; tendencia de seis meses, reparto por servicio y por profesional.
@@ -227,5 +228,5 @@ Lo que esta demo deja fuera a propósito:
 - **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Segundo factor** (2FA) para administración.
 - **Pacientes**: fusión de fichas duplicadas y alta sin cita.
-- Lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
+- Oferta automática del hueco liberado al primero de la lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

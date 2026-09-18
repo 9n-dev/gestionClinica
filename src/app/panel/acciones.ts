@@ -16,7 +16,7 @@ import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { gestionaTodo, puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
-import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
+import { esquemaBloqueo, esquemaCitaPanel, esquemaEspera, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
 
 export type Estado = { error?: string; ok?: string; campos?: Record<string, string[] | undefined>; valores?: Record<string, string> };
 
@@ -68,6 +68,9 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
   const r = await crearCita(cita, true);
   if (!r.ok) return { error: r.error, valores };
   await anotar(user, "CREAR", "cita", r.id, `${cita.dia} ${cita.hora}`);
+  // Si estaba en la lista de espera para este servicio, ya no: tiene su cita.
+  const creada = await prisma.cita.findUniqueOrThrow({ where: { id: r.id }, select: { pacienteId: true, servicioId: true } });
+  await prisma.enEspera.updateMany({ where: { ...creada, atendidoAt: null }, data: { atendidoAt: new Date() } });
 
   // Serie: mismo día de la semana y misma hora. Si una fecha no tiene hueco, se salta y se avisa; no se busca otra hora sola.
   const serie = { creadas: 0, sinHueco: [] as string[] };
@@ -136,6 +139,27 @@ export async function suprimirDatosPaciente(id: string): Promise<Estado> {
   await anotar(user, "BORRAR", "paciente", id, "supresión: datos anonimizados");
   refrescar();
   return { ok: "Datos eliminados." };
+}
+
+// ---------- Lista de espera ----------
+
+export async function apuntarEnEspera(pacienteId: string, _: Estado, fd: FormData): Promise<Estado> {
+  const { user } = await requerirSesion();
+  const datos = esquemaEspera.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  const { servicioId, profesionalId, preferencia } = datos.data;
+  if (await prisma.enEspera.findFirst({ where: { pacienteId, servicioId, atendidoAt: null } })) return { error: "Ya está en la lista de espera para ese servicio." };
+  const e = await prisma.enEspera.create({ data: { pacienteId, servicioId, profesionalId: profesionalId || null, preferencia: preferencia || null } });
+  await anotar(user, "CREAR", "paciente", pacienteId, `lista de espera ${e.id}`);
+  refrescar();
+  return { ok: "Apuntado en la lista de espera." };
+}
+
+export async function quitarDeEspera(id: string) {
+  const { user } = await requerirSesion();
+  const { count } = await prisma.enEspera.updateMany({ where: { id, atendidoAt: null }, data: { atendidoAt: new Date() } });
+  if (count) await anotar(user, "BORRAR", "paciente", null, `lista de espera ${id}`);
+  refrescar();
 }
 
 // ---------- Importar pacientes (solo ADMIN) ----------

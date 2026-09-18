@@ -16,6 +16,7 @@ export async function suprimirPaciente(id: string, ahora = new Date()): Promise<
   await prisma.$transaction([
     prisma.emailEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),
     prisma.mensajeEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),
+    prisma.enEspera.deleteMany({ where: { pacienteId: id } }),
     prisma.cita.updateMany({ where: { pacienteId: id }, data: { pacienteNombre: ELIMINADO, pacienteTelefono: "", pacienteEmail: null, notas: null } }),
     // nombreNorm único por paciente: (telefono, nombreNorm) sigue siendo una clave válida y ninguna reserva nueva coincide con él
     prisma.paciente.update({ where: { id }, data: { nombre: ELIMINADO, nombreNorm: `eliminado-${id}`, telefono: "", email: null, notas: null, eliminadoAt: ahora } }),
@@ -27,12 +28,13 @@ export async function suprimirPaciente(id: string, ahora = new Date()): Promise<
 export async function datosDePaciente(id: string) {
   const p = await prisma.paciente.findUnique({
     where: { id },
-    include: { citas: { orderBy: { inicio: "asc" }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } }, mensajes: { orderBy: { enviadoAt: "asc" } } } } },
+    include: { enEspera: { include: { servicio: true } }, citas: { orderBy: { inicio: "asc" }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } }, mensajes: { orderBy: { enviadoAt: "asc" } } } } },
   });
   if (!p) return null;
   return {
     exportadoEl: new Date().toISOString(),
     paciente: { nombre: p.nombre, telefono: p.telefono, email: p.email, notasInternas: p.notas, pacienteDesde: p.creadoAt.toISOString() },
+    listaDeEspera: p.enEspera.map((e) => ({ servicio: e.servicio.nombre, preferencia: e.preferencia, apuntadoEl: e.creadoAt.toISOString(), cerradoEl: e.atendidoAt?.toISOString() ?? null })),
     citas: p.citas.map((c) => ({
       inicio: c.inicio.toISOString(),
       fin: c.fin.toISOString(),

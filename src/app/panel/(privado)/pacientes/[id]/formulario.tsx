@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { guardarPaciente, suprimirDatosPaciente, type Estado } from "../../../acciones";
+import { apuntarEnEspera, guardarPaciente, suprimirDatosPaciente, type Estado } from "../../../acciones";
 
 export function FormularioPaciente({ p }: { p: { id: string; nombre: string; telefono: string; email: string; notas: string } }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarPaciente.bind(null, p.id), {});
@@ -43,5 +43,33 @@ export function FormularioSupresion({ id, nombre }: { id: string; nombre: string
         {estado.error && <p role="alert" className="mt-3 font-bold text-error">{estado.error}</p>}
       </form>
     </details>
+  );
+}
+
+type Opcion = { id: string; nombre: string };
+export function FormularioEspera({ pacienteId, servicios, profesionales }: { pacienteId: string; servicios: Opcion[]; profesionales: Opcion[] }) {
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(apuntarEnEspera.bind(null, pacienteId), {});
+  return (
+    <form action={accion} className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label htmlFor="espera-servicio" className="etiqueta">Para qué servicio</label>
+        <select id="espera-servicio" name="servicioId" className="campo">{servicios.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}</select>
+      </div>
+      <div>
+        <label htmlFor="espera-profesional" className="etiqueta">Con quién</label>
+        <select id="espera-profesional" name="profesionalId" className="campo">
+          <option value="">Cualquiera</option>
+          {profesionales.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+        </select>
+      </div>
+      <div className="sm:col-span-2">
+        <label htmlFor="espera-preferencia" className="etiqueta">Cuándo le viene bien (opcional)</label>
+        <input id="espera-preferencia" name="preferencia" maxLength={200} placeholder="Solo tardes, antes del día 15…" className="campo" />
+      </div>
+      <div className="flex items-center gap-4 sm:col-span-2">
+        <button className="btn btn-secundario" disabled={enviando}>{enviando ? "Apuntando…" : "Apuntar"}</button>
+        <p role="status" className={`font-bold ${estado.error ? "text-error" : "text-exito"}`}>{estado.error ?? estado.ok}</p>
+      </div>
+    </form>
   );
 }

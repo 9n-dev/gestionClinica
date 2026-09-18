@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import type { TipoEmail } from "@/generated/prisma/client";
 import { prisma } from "../db";
+import { candidatosPara } from "../espera";
 import { plantillas, type CitaCompleta } from "./plantillas";
 
 const clinica = () => process.env.EMAIL_CLINICA || "clinica@podologiaserrano.es";
@@ -44,9 +45,9 @@ export async function emailsCitaNueva(c: CitaCompleta) {
   await enviarEmail({ tipo: "AVISO_CLINICA", para: clinica(), citaId: c.id, ...plantillas.avisoClinica(c) });
 }
 
-export async function emailsCitaCancelada(c: CitaCompleta, avisarPaciente: boolean) {
+export async function emailsCitaCancelada(c: CitaCompleta & { profesionalId: string; fin: Date }, avisarPaciente: boolean) {
   if (avisarPaciente && c.pacienteEmail) await enviarEmail({ tipo: "CANCELACION", para: c.pacienteEmail, citaId: c.id, ...plantillas.cancelacionPaciente(c) });
-  await enviarEmail({ tipo: "CANCELACION", para: clinica(), citaId: c.id, ...plantillas.cancelacionClinica(c) });
+  await enviarEmail({ tipo: "CANCELACION", para: clinica(), citaId: c.id, ...plantillas.cancelacionClinica(c, (await candidatosPara(c)).length) });
 }
 
 export const emailRecordatorio = (c: CitaCompleta & { pacienteEmail: string }) =>

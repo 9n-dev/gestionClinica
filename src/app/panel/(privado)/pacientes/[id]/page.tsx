@@ -6,7 +6,8 @@ import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { diaDe, formatoDia, formatoFechaHora } from "@/lib/fechas";
 import { ESTADOS } from "../../estados";
-import { FormularioPaciente, FormularioSupresion } from "./formulario";
+import { quitarDeEspera } from "../../../acciones";
+import { FormularioEspera, FormularioPaciente, FormularioSupresion } from "./formulario";
 
 export const metadata: Metadata = { title: "Ficha de paciente" };
 
@@ -15,8 +16,12 @@ export default async function FichaPaciente({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const paciente = await prisma.paciente.findUnique({
     where: { id },
-    include: { citas: { orderBy: { inicio: "desc" }, include: { servicio: true, profesional: true } } },
+    include: { citas: { orderBy: { inicio: "desc" }, include: { servicio: true, profesional: true } }, enEspera: { where: { atendidoAt: null }, include: { servicio: true, profesional: true } } },
   });
+  const [servicios, profesionales] = await Promise.all([
+    prisma.servicio.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, select: { id: true, nombre: true } }),
+    prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, select: { id: true, nombre: true } }),
+  ]);
   if (!paciente) notFound();
   await anotar(user, "VER", "paciente", id);
   const eliminado = !!paciente.eliminadoAt;
@@ -66,6 +71,22 @@ export default async function FichaPaciente({ params }: { params: Promise<{ id: 
         </div>
         {proximas.length ? lista(proximas) : <p className="mt-3 text-pizarra">No tiene ninguna cita pendiente.</p>}
       </section>
+
+      {!paciente.eliminadoAt && (
+        <section aria-labelledby="t-espera" className="mt-8">
+          <h2 id="t-espera" className="text-xl font-bold">Lista de espera</h2>
+          {paciente.enEspera.map((e) => (
+            <div key={e.id} className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-linea bg-white p-4">
+              <p><strong>{e.servicio.nombre}</strong> con {e.profesional?.nombre ?? "cualquiera"}{e.preferencia && <span className="text-pizarra"> · {e.preferencia}</span>}</p>
+              <form action={quitarDeEspera.bind(null, e.id)}><button className="btn btn-secundario min-h-10 px-3">Quitar de la lista</button></form>
+            </div>
+          ))}
+          <details className="mt-3 rounded-lg border border-dashed border-pizarra p-4">
+            <summary className="cursor-pointer font-bold">Apuntar en la lista de espera</summary>
+            <div className="mt-4"><FormularioEspera pacienteId={paciente.id} servicios={servicios} profesionales={profesionales} /></div>
+          </details>
+        </section>
+      )}
 
       <section aria-labelledby="t-historial" className="mt-8">
         <h2 id="t-historial" className="text-xl font-bold">Historial</h2>

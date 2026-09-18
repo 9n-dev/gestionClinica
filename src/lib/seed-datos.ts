@@ -55,6 +55,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   await prisma.emailEnviado.deleteMany();
   await prisma.mensajeEnviado.deleteMany();
   await prisma.franjaOcupada.deleteMany();
+  await prisma.enEspera.deleteMany();
   await prisma.cita.deleteMany();
   await prisma.paciente.deleteMany();
   await prisma.bloqueo.deleteMany();
@@ -163,6 +164,11 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
         data: { tipo: "RECORDATORIO", canal: "CONSOLA", para: `+34${paciente.telefono}`, citaId: cita.id, enviadoAt: new Date(inicio.getTime() - 86_400_000), texto: plantillas.recordatorioMovil({ ...cita, servicio, profesional: pro }).texto },
       });
     creadas++;
+  }
+  // Dos personas que quieren venir antes
+  if (pacientes.length) {
+    await prisma.enEspera.create({ data: { pacienteId: pacientes[4].id, servicioId: servicios[1].id, profesionalId: laura.id, preferencia: "Solo por las tardes", creadoAt: aInstante(sumarDias(d0, -3), 11 * 60) } });
+    await prisma.enEspera.create({ data: { pacienteId: pacientes[11].id, servicioId: servicios[0].id, preferencia: "Cuanto antes, le duele al andar", creadoAt: aInstante(sumarDias(d0, -1), 17 * 60) } });
   }
   return { citas: creadas, bloqueos: bloqueos.length };
 }

@@ -91,8 +91,10 @@ ${boton(url, invitacion ? "Elegir mi contraseña" : "Cambiar mi contraseña")}
     html: marco("Tu cita se ha cancelado", `<p>Hola, ${nombrePila(c)}. Esta cita ha quedado cancelada:</p>${ficha(c)}
 <p>Puedes pedir otra cuando quieras.</p>${boton(`${URL_BASE()}/reservar`, "Pedir otra cita")}`),
   }),
-  cancelacionClinica: (c: CitaCompleta) => ({
+  cancelacionClinica: (c: CitaCompleta, enEspera = 0) => ({
     asunto: `Cita cancelada: ${c.pacienteNombre}, ${formatoFechaLarga(c.inicio)} ${formatoHora(c.inicio)}`,
-    html: marco("Se ha cancelado una cita", `<p>El hueco vuelve a estar disponible en la web.</p>${ficha(c, true)}`),
+    html: marco("Se ha cancelado una cita", `<p>El hueco vuelve a estar disponible en la web.</p>${ficha(c, true)}${
+      enEspera ? `<p><strong>${enEspera === 1 ? "Hay una persona" : `Hay ${enEspera} personas`} en la lista de espera a quien le encaja este hueco.</strong></p>${boton(`${URL_BASE()}/panel/citas/${c.id}`, "Ver a quién ofrecérselo")}` : ""
+    }`),
   }),
 };

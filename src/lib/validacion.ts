@@ -69,6 +69,12 @@ export const esquemaPaciente = z.object({
   notas: z.string().trim().max(1000),
 });
 
+export const esquemaEspera = z.object({
+  servicioId: z.string().min(1, "Elige un servicio").max(40),
+  profesionalId: z.string().max(40), // "" = cualquiera
+  preferencia: z.string().trim().max(200),
+});
+
 export const esquemaMover = z.object({ profesional: z.string().min(1).max(80), dia, hora });
 
 export const esquemaNotas = z.object({ notas: z.string().trim().max(1000) });

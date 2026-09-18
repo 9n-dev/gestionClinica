@@ -53,6 +53,7 @@ model Profesional {
   bloqueos  Bloqueo[]
   franjas   FranjaOcupada[]
   servicios Servicio[] // los que hace: la reserva solo le ofrece para esos
+  enEspera  EnEspera[]
 
   @@map("profesionales")
 }
@@ -68,6 +69,7 @@ model Servicio {
   activo        Boolean       @default(true)
   citas         Cita[]
   profesionales Profesional[]
+  enEspera      EnEspera[]
 
   @@map("servicios")
 }
@@ -88,16 +90,17 @@ model HorarioLaboral {
 // Identidad del paciente: mismo teléfono y mismo nombre (sin acentos ni mayúsculas).
 // Mismo teléfono con otro nombre es otro paciente: la madre que reserva para su hijo con su móvil.
 model Paciente {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   nombre      String
   nombreNorm  String // normalizarNombre(nombre); también sirve para buscar sin acentos
   telefono    String
   email       String?
   notas       String? // internas, de la ficha. No es historia clínica.
-  creadoAt    DateTime  @default(now())
+  creadoAt    DateTime   @default(now())
   // Derecho de supresión: se vacían sus datos y los de sus citas, que se quedan para que la agenda pasada cuadre.
   eliminadoAt DateTime?
   citas       Cita[]
+  enEspera    EnEspera[]
 
   @@unique([telefono, nombreNorm])
   @@map("pacientes")
@@ -244,4 +247,21 @@ model MensajeEnviado {
 
   @@index([enviadoAt])
   @@map("mensajes_enviados")
+}
+
+// Lista de espera: quien quiere venir antes. Cuando se libera un hueco, el panel enseña a quién le encaja; decide una persona.
+model EnEspera {
+  id            String       @id @default(cuid())
+  pacienteId    String
+  paciente      Paciente     @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  servicioId    String
+  servicio      Servicio     @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  profesionalId String? // null = cualquiera
+  profesional   Profesional? @relation(fields: [profesionalId], references: [id], onDelete: Cascade)
+  preferencia   String? // "solo tardes", "antes del 15"
+  creadoAt      DateTime     @default(now())
+  atendidoAt    DateTime? // se le dio cita o se le quitó de la lista
+
+  @@index([atendidoAt, creadoAt])
+  @@map("en_espera")
 }

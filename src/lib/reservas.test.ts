@@ -157,3 +157,23 @@ describe("servicios por profesional", () => {
     expect((await crearCita({ ...paciente, servicio: "quiropodia", profesional: "laura-serrano", dia, hora: "09:00" }, true)).ok).toBe(true);
   });
 });
+
+describe("lista de espera", () => {
+  it("propone, por orden de llegada, a quien le cabe el hueco con ese profesional", async () => {
+    const { candidatosPara } = await import("./espera");
+    const [laura, marcos] = await Promise.all(["laura-serrano", "marcos-ortiz"].map((slug) => prisma.profesional.findUniqueOrThrow({ where: { slug } })));
+    const servicio = async (slug: string) => (await prisma.servicio.findUniqueOrThrow({ where: { slug } })).id;
+    const apuntar = async (nombre: string, slug: string, profesionalId: string | null, creadoAt: string) =>
+      prisma.enEspera.create({ data: { servicioId: await servicio(slug), profesionalId, creadoAt: new Date(creadoAt), pacienteId: (await prisma.paciente.create({ data: { nombre, nombreNorm: nombre.toLowerCase(), telefono: "655555555" } })).id } });
+    await apuntar("Segunda", "consulta-general", null, "2026-09-02");
+    await apuntar("Primera", "quiropodia", laura.id, "2026-09-01");
+    await apuntar("No cabe", "estudio-de-la-pisada", null, "2026-08-01"); // 60 min en un hueco de 45
+    await apuntar("Quiere a Marcos", "consulta-general", marcos.id, "2026-08-01");
+    const yaTieneCita = await apuntar("Ya atendida", "quiropodia", null, "2026-08-01");
+    await prisma.enEspera.update({ where: { id: yaTieneCita.id }, data: { atendidoAt: new Date() } });
+
+    const inicio = aInstante(sumarDias(LUNES, 14), 600);
+    const hueco = { profesionalId: laura.id, inicio, fin: new Date(inicio.getTime() + 45 * 60_000) };
+    expect((await candidatosPara(hueco)).map((e) => e.paciente.nombre)).toEqual(["Primera", "Segunda"]);
+  });
+});

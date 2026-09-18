@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { FormularioAuto } from "@/components/FormularioAuto";
 import { anotar } from "@/lib/auditoria";
 import { requerirSesion } from "@/lib/auth";
+import { candidatosPara } from "@/lib/espera";
 import { prisma } from "@/lib/db";
 import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
 import { puedeGestionar } from "@/lib/permisos";
@@ -24,6 +25,8 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
   if (!cita) notFound();
   await anotar(user, "VER", "cita", id);
   const puede = puedeGestionar(user, cita.profesionalId);
+  // Hueco que ha quedado libre y todavía no ha pasado: ¿le viene bien a alguien de la lista de espera?
+  const enEspera = cita.estado === "CANCELADA" && cita.inicio > new Date() ? await candidatosPara(cita) : [];
   const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
   const estado = ESTADOS[cita.estado];
   const sinHueco = (sp.sinHueco ?? "").split(",").filter(esDia);
@@ -86,6 +89,24 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
             </form>
           </details>
         </div>
+      )}
+
+      {enEspera.length > 0 && (
+        <section aria-labelledby="t-espera" className="mt-8 rounded-lg border border-cobalto bg-cielo p-6">
+          <h2 id="t-espera" className="text-xl font-bold">En lista de espera para este hueco</h2>
+          <p className="mt-1">Por orden de llegada. Llámale y, si le viene bien, dale la cita: el formulario se abre con todo puesto.</p>
+          <ul className="mt-3 divide-y divide-linea rounded-lg bg-white">
+            {enEspera.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="font-bold">{e.paciente.nombre} <a href={`tel:+34${e.paciente.telefono}`} className="enlace font-normal tabular-nums">{e.paciente.telefono}</a></p>
+                  <p className="text-pizarra">{e.servicio.nombre} ({e.servicio.duracionMin} min){e.preferencia && ` · ${e.preferencia}`}</p>
+                </div>
+                <Link href={`/panel/citas/nueva?paciente=${e.pacienteId}&servicio=${e.servicio.slug}&profesional=${cita.profesional.slug}&dia=${diaDe(cita.inicio)}&hora=${formatoHora(cita.inicio)}`} className="btn btn-primario">Darle esta cita</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {mover && (

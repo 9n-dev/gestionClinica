@@ -11,6 +11,7 @@ const ENLACES = [
   { href: "/panel/agenda", texto: "Agenda" },
   { href: "/panel/citas/nueva", texto: "Nueva cita" },
   { href: "/panel/pacientes", texto: "Pacientes" },
+  { href: "/panel/espera", texto: "Lista de espera" },
   { href: "/panel/bloqueos", texto: "Bloqueos" },
   { href: "/panel/emails", texto: "Emails y mensajes" },
   { href: "/panel/estadisticas", texto: "Estadísticas", admin: true },
