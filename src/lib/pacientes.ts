@@ -40,6 +40,7 @@ export async function datosDePaciente(id: string) {
       fin: c.fin.toISOString(),
       servicio: c.servicio.nombre,
       precioEuros: c.precioCent / 100,
+      cobro: c.pagadaAt ? { euros: (c.cobradoCent ?? 0) / 100, formaPago: c.formaPago, fecha: c.pagadaAt.toISOString() } : null,
       profesional: c.profesional.nombre,
       estado: c.estado,
       reservadaEl: c.creadaAt.toISOString(),

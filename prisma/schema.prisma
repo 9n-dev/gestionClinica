@@ -23,6 +23,13 @@ enum TipoEmail {
   ACCESO // invitación al panel o cambio de contraseña
 }
 
+enum FormaPago {
+  EFECTIVO
+  TARJETA
+  BIZUM
+  TRANSFERENCIA
+}
+
 enum CanalMensaje {
   WHATSAPP
   SMS
@@ -117,6 +124,10 @@ model Cita {
   estado                EstadoCita       @default(CONFIRMADA)
   // Precio del servicio al reservar: los ingresos de meses pasados no cambian si luego cambia la tarifa.
   precioCent            Int              @default(0)
+  // Cobro en la clínica. cobradoCent es lo que se cobró de verdad, que puede no ser la tarifa (un descuento, un bono).
+  pagadaAt              DateTime?
+  formaPago             FormaPago?
+  cobradoCent           Int?
   pacienteId            String
   paciente              Paciente         @relation(fields: [pacienteId], references: [id])
   // Foto de lo que se escribió al reservar; la ficha viva está en Paciente.
@@ -135,6 +146,7 @@ model Cita {
   @@index([profesionalId, inicio])
   @@index([estado, inicio])
   @@index([pacienteId, inicio])
+  @@index([pagadaAt])
   @@map("citas")
 }
 

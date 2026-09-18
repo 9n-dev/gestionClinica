@@ -75,6 +75,12 @@ export const esquemaEspera = z.object({
   preferencia: z.string().trim().max(200),
 });
 
+export const FORMAS_PAGO = { EFECTIVO: "Efectivo", TARJETA: "Tarjeta", BIZUM: "Bizum", TRANSFERENCIA: "Transferencia" } as const;
+export const esquemaCobro = z.object({
+  importe: z.coerce.number("Escribe el importe").min(0, "El importe no puede ser negativo").max(9999),
+  formaPago: z.enum(["EFECTIVO", "TARJETA", "BIZUM", "TRANSFERENCIA"], "Elige la forma de pago"),
+});
+
 export const esquemaMover = z.object({ profesional: z.string().min(1).max(80), dia, hora });
 
 export const esquemaNotas = z.object({ notas: z.string().trim().max(1000) });

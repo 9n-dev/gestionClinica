@@ -16,7 +16,7 @@ import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { gestionaTodo, puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
-import { esquemaBloqueo, esquemaCitaPanel, esquemaEspera, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
+import { esquemaBloqueo, esquemaCitaPanel, esquemaCobro, esquemaEspera, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
 
 export type Estado = { error?: string; ok?: string; campos?: Record<string, string[] | undefined>; valores?: Record<string, string> };
 
@@ -97,6 +97,28 @@ export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData):
   await anotar(user, "MOVER", "cita", id, `→ ${datos.data.dia} ${datos.data.hora} ${datos.data.profesional}`);
   refrescar();
   redirect(`/panel/citas/${id}?movida=1`);
+}
+
+/** Cobro en la clínica. No se cobra una cita cancelada ni a la que no vino. */
+export async function cobrarCita(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  const user = await sesionParaCita(id);
+  if (!user) return { error: SOLO_LO_TUYO };
+  const datos = esquemaCobro.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  const cobradoCent = Math.round(datos.data.importe * 100);
+  const { count } = await prisma.cita.updateMany({ where: { id, pagadaAt: null, estado: { in: ["CONFIRMADA", "ATENDIDA"] } }, data: { pagadaAt: new Date(), formaPago: datos.data.formaPago, cobradoCent } });
+  if (!count) return { error: "Esta cita no se puede cobrar (ya está cobrada, o está cancelada o sin presentarse)." };
+  await anotar(user, "EDITAR", "cita", id, `cobro: ${datos.data.importe} € ${datos.data.formaPago}`);
+  refrescar();
+  return { ok: "Cobro apuntado." };
+}
+
+export async function anularCobro(id: string) {
+  const user = await sesionParaCita(id);
+  if (!user) return;
+  const { count } = await prisma.cita.updateMany({ where: { id, pagadaAt: { not: null } }, data: { pagadaAt: null, formaPago: null, cobradoCent: null } });
+  if (count) await anotar(user, "EDITAR", "cita", id, "cobro anulado");
+  refrescar();
 }
 
 /** Arrastrar y soltar en la agenda. Recibe el instante de destino en ISO. */

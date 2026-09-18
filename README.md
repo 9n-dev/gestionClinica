@@ -24,6 +24,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
   - **Importar pacientes** desde un CSV de Excel (solo administración): primero comprueba el fichero y enseña qué entraría y qué filas tienen problemas; al confirmar, no duplica a quien ya existe.
+  - **Cobros y caja**: en el detalle de cada cita se apunta el cobro (efectivo, tarjeta, Bizum o transferencia) con el importe editable por si hay descuento. «Caja» suma lo cobrado cada día por forma de pago, para cuadrar el cajón y el datáfono, y avisa de lo atendido ese día que sigue sin cobrar. Un profesional ve su caja; recepción y administración, la de todos.
   - **Lista de espera**: se apunta desde la ficha a quien quiere venir antes. Cuando se cancela una cita, su detalle y el email de aviso a la clínica dicen a quién de la lista le encaja ese hueco (le cabe el servicio, lo hace ese profesional y lo pidió a él o le daba igual), por orden de llegada; «Darle esta cita» abre el formulario con todo puesto y, al crearla, sale de la lista. Decide una persona, no un mensaje automático: no todos los huecos valen para todos.
   - Bloqueo de horas (comidas, vacaciones) con aviso si hay citas dentro, y los **festivos nacionales** del año con un botón (Viernes Santo incluido, calculado); los autonómicos y locales se añaden a mano.
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
@@ -139,7 +140,7 @@ En la demo, los cuatro usuarios sembrados llevan `demo = true` y no se pueden ca
 
 ### Estadísticas
 
-- **Los ingresos no se mueven al cambiar tarifas**: cada cita guarda el precio que tenía el servicio al reservar (`Cita.precioCent`). Solo cuentan las citas atendidas.
+- **Los ingresos no se mueven al cambiar tarifas**: cada cita guarda el precio que tenía el servicio al reservar (`Cita.precioCent`). Solo cuentan las citas atendidas. Al lado va lo **cobrado** de verdad (`Cita.cobradoCent`, que puede llevar descuento) y lo atendido que sigue sin cobrar.
 - **Ocupación** = minutos citados / minutos disponibles, donde lo disponible es el horario de cada profesional menos los bloqueos, contado por franjas de 15 minutos como la reserva (así dos bloqueos que se pisan no restan dos veces). Se calcula con el horario de hoy: si alguien cambió de horario a mitad de un mes pasado, la ocupación de ese mes es aproximada.
 - **Ausencias** = no presentadas sobre las que debían haberse atendido; las canceladas a tiempo van aparte, porque liberaron el hueco.
 - Los gráficos son HTML y CSS, sin librería: una sola serie en el cobalto del sitio con el mes elegido destacado sobre gris, cifra solo en el mes elegido y en el mejor, burbuja al pasar el ratón o con el foco del teclado, texto alternativo en cada marca y una tabla equivalente debajo de cada gráfico. Las variaciones llevan flecha y texto además de color.
@@ -228,5 +229,5 @@ Lo que esta demo deja fuera a propósito:
 - **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Segundo factor** (2FA) para administración.
 - **Pacientes**: fusión de fichas duplicadas y alta sin cita.
-- Oferta automática del hueco liberado al primero de la lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
+- Oferta automática del hueco liberado al primero de la lista de espera, señal al reservar con Stripe, facturación (mejor integrarse con un programa homologado para Verifactu que construirla), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

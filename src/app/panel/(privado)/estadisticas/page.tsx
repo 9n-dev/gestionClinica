@@ -85,9 +85,10 @@ export default async function Estadisticas({ searchParams }: { searchParams: Pro
           {/* Cifras clave. Una sola es la protagonista: los ingresos. */}
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div className={`${tarjeta} flex flex-col-reverse justify-end`}>
+              <p className="mt-2 text-base text-pizarra">Cobrado: <strong className="text-tinta">{formatoPrecio(e.total.cobradoCent)}</strong>{e.total.sinCobrarCent > 0 && <> · atendido sin cobrar: <strong className="text-tinta">{formatoPrecio(e.total.sinCobrarCent)}</strong></>}</p>
               <Delta ahora={e.total.ingresosCent} antes={e.anterior.ingresosCent} subirEsBueno unidad="%" mesAnterior={mesAnterior} />
               <dd className="font-sans text-5xl font-semibold leading-tight">{formatoPrecio(e.total.ingresosCent)}</dd>
-              <dt className="text-pizarra">Ingresos</dt>
+              <dt className="text-pizarra">Ingresos (citas atendidas, a su tarifa)</dt>
             </div>
             <div className={`${tarjeta} flex flex-col-reverse justify-end`}>
               <Delta ahora={e.total.atendidas} antes={e.anterior.atendidas} subirEsBueno unidad="%" mesAnterior={mesAnterior} />

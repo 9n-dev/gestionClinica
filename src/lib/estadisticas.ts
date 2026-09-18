@@ -31,9 +31,11 @@ export function minutosDisponibles(dias: Dia[], tramos: Tramo[], bloqueos: Inter
   return minutos;
 }
 
-const vacio = () => ({ atendidas: 0, noPresentadas: 0, canceladas: 0, pendientes: 0, ingresosCent: 0 });
-const apuntar = (c: { estado: string; precioCent: number }, t: ReturnType<typeof vacio>) => {
-  if (c.estado === "ATENDIDA") { t.atendidas++; t.ingresosCent += c.precioCent; }
+// ingresosCent: lo atendido, a su tarifa. cobradoCent: lo que ha entrado en caja. sinCobrarCent: atendido y aún sin cobrar.
+const vacio = () => ({ atendidas: 0, noPresentadas: 0, canceladas: 0, pendientes: 0, ingresosCent: 0, cobradoCent: 0, sinCobrarCent: 0 });
+const apuntar = (c: { estado: string; precioCent: number; pagadaAt: Date | null; cobradoCent: number | null }, t: ReturnType<typeof vacio>) => {
+  if (c.pagadaAt) t.cobradoCent += c.cobradoCent ?? 0;
+  if (c.estado === "ATENDIDA") { t.atendidas++; t.ingresosCent += c.precioCent; if (!c.pagadaAt) t.sinCobrarCent += c.precioCent; }
   else if (c.estado === "NO_PRESENTADA") t.noPresentadas++;
   else if (c.estado === "CANCELADA") t.canceladas++;
   else t.pendientes++;
@@ -45,7 +47,7 @@ export async function estadisticas(mes: Mes, mesesDeTendencia = 6) {
   const meses = Array.from({ length: mesesDeTendencia }, (_, i) => sumarMeses(mes, i + 1 - mesesDeTendencia));
   const [desde, inicioMes, fin] = [aInstante(`${meses[0]}-01`), aInstante(`${mes}-01`), aInstante(`${sumarMeses(mes, 1)}-01`)];
   const [citas, profesionales, servicios, bloqueos] = await Promise.all([
-    prisma.cita.findMany({ where: { inicio: { gte: desde, lt: fin } }, select: { inicio: true, fin: true, estado: true, precioCent: true, profesionalId: true, servicioId: true } }),
+    prisma.cita.findMany({ where: { inicio: { gte: desde, lt: fin } }, select: { inicio: true, fin: true, estado: true, precioCent: true, pagadaAt: true, cobradoCent: true, profesionalId: true, servicioId: true } }),
     prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, include: { horarios: true } }),
     prisma.servicio.findMany({ orderBy: { orden: "asc" }, select: { id: true, nombre: true } }),
     prisma.bloqueo.findMany({ where: { inicio: { lt: fin }, fin: { gt: inicioMes } } }),

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { guardarNotas, moverDesdeFormulario, type Estado } from "../../../acciones";
+import { FORMAS_PAGO } from "@/lib/validacion";
+import { cobrarCita, guardarNotas, moverDesdeFormulario, type Estado } from "../../../acciones";
 
 export function FormularioNotas({ id, notas }: { id: string; notas: string | null }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarNotas.bind(null, id), {});
@@ -31,6 +32,25 @@ export function FormularioMover({ id, profesional, dia, horas, horaActual }: { i
         </select>
       </div>
       <button className="btn btn-primario" disabled={enviando}>{enviando ? "Moviendo…" : "Mover la cita"}</button>
+      {estado.error && <p role="alert" className="w-full font-bold text-error">{estado.error}</p>}
+    </form>
+  );
+}
+
+export function FormularioCobro({ id, tarifa }: { id: string; tarifa: number }) {
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(cobrarCita.bind(null, id), {});
+  return (
+    <form action={accion} className="flex flex-wrap items-end gap-3">
+      <div>
+        <label htmlFor="importe" className="etiqueta">Importe (€)</label>
+        <input id="importe" name="importe" type="number" min={0} max={9999} step={0.01} defaultValue={tarifa} required className="campo w-32" aria-describedby="importe-ayuda" />
+      </div>
+      <div>
+        <label htmlFor="formaPago" className="etiqueta">Forma de pago</label>
+        <select id="formaPago" name="formaPago" className="campo">{Object.entries(FORMAS_PAGO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+      </div>
+      <button className="btn btn-primario" disabled={enviando}>{enviando ? "Guardando…" : "Marcar como cobrada"}</button>
+      <p id="importe-ayuda" className="w-full text-base text-pizarra">Sale la tarifa de cuando se reservó; cámbiala si hay descuento.</p>
       {estado.error && <p role="alert" className="w-full font-bold text-error">{estado.error}</p>}
     </form>
   );

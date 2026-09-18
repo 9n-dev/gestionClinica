@@ -129,13 +129,16 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
     const fin = finDe(inicio, servicio.duracionMin);
     const paciente = pacientes[(creadas * 7) % pacientes.length]; // salteados: varios repiten visita
     const cancelada = creadas % 13 === 12;
+    const estado = cancelada ? "CANCELADA" : fin > ahora ? "CONFIRMADA" : creadas % 8 === 5 ? "NO_PRESENTADA" : "ATENDIDA";
+    const cobrada = estado === "ATENDIDA" && creadas % 6 !== 1; // alguna atendida queda sin cobrar
     const cita = await prisma.cita.create({
       data: {
         servicioId: servicio.id,
         profesionalId: pro.id,
         inicio,
         fin,
-        estado: cancelada ? "CANCELADA" : fin > ahora ? "CONFIRMADA" : creadas % 8 === 5 ? "NO_PRESENTADA" : "ATENDIDA",
+        estado,
+        ...(cobrada ? { pagadaAt: fin, cobradoCent: servicio.precioCent, formaPago: (["TARJETA", "EFECTIVO", "BIZUM"] as const)[creadas % 3] } : {}),
         canceladaAt: cancelada ? ahora : null,
         precioCent: servicio.precioCent,
         pacienteId: paciente.id,

@@ -9,9 +9,10 @@ import { prisma } from "@/lib/db";
 import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
 import { puedeGestionar } from "@/lib/permisos";
 import { huecosEnRango } from "@/lib/reservas";
-import { cambiarEstado, cancelarDesdePanel } from "../../../acciones";
+import { FORMAS_PAGO } from "@/lib/validacion";
+import { anularCobro, cambiarEstado, cancelarDesdePanel } from "../../../acciones";
 import { ESTADOS } from "../../estados";
-import { FormularioMover, FormularioNotas } from "./formularios";
+import { FormularioCobro, FormularioMover, FormularioNotas } from "./formularios";
 
 export const metadata: Metadata = { title: "Detalle de cita" };
 
@@ -89,6 +90,20 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
             </form>
           </details>
         </div>
+      )}
+
+      {(cita.pagadaAt || (puede && (cita.estado === "CONFIRMADA" || cita.estado === "ATENDIDA"))) && (
+        <section aria-labelledby="t-cobro" className="mt-8 rounded-lg border border-linea bg-white p-6">
+          <h2 id="t-cobro" className="text-xl font-bold">Cobro</h2>
+          {cita.pagadaAt ? (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p><span className="rounded bg-pino-claro px-2.5 py-0.5 font-bold text-exito">Cobrada</span> {formatoPrecio(cita.cobradoCent ?? 0)} · {FORMAS_PAGO[cita.formaPago!]} · {formatoFechaHora(cita.pagadaAt)}</p>
+              {puede && <form action={anularCobro.bind(null, cita.id)}><button className="btn btn-secundario min-h-10 px-3">Anular el cobro</button></form>}
+            </div>
+          ) : (
+            <div className="mt-3"><FormularioCobro id={cita.id} tarifa={cita.precioCent / 100} /></div>
+          )}
+        </section>
       )}
 
       {enEspera.length > 0 && (
