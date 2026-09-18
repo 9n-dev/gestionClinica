@@ -2,7 +2,9 @@
 
 Demo de portfolio: web pública + reserva de citas online + panel de agenda para una clínica de podología ficticia de Getafe (Madrid). Todos los datos (clínica, profesionales, pacientes, NIF, teléfono, dirección) son inventados.
 
-**Acceso al panel de la demo:** `demo@podologiaserrano.es` / `demo1234` (en `/panel`).
+**Acceso al panel de la demo** (en `/panel`), todos con contraseña `demo1234`:
+- `demo@podologiaserrano.es`: recepción, ve toda la agenda.
+- `laura@podologiaserrano.es` y `marcos@podologiaserrano.es`: cada profesional entra con su agenda filtrada.
 
 ## Qué incluye
 
@@ -10,7 +12,13 @@ Demo de portfolio: web pública + reserva de citas online + panel de agenda para
 - **Reserva en `/reservar`**: servicio → profesional (o «me da igual») → día y hora con huecos reales → datos de contacto → confirmación. No se pide ningún dato de salud.
 - **Sin dobles reservas, garantizado por la base de datos** (ver más abajo).
 - **Emails** de confirmación, aviso a la clínica, cancelación y recordatorio, con enlace de cancelación por token.
-- **Panel en `/panel`**: agenda por día y semana filtrable por profesional, detalle de cita, cancelar, marcar como atendida, bloqueo de horas y registro de emails enviados.
+- **Panel en `/panel`**:
+  - Agenda por día y semana, filtrable por profesional. **Arrastra una cita** para cambiarla de hora o de profesional; pulsa en un hueco libre para crear una.
+  - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional.
+  - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
+  - Bloqueo de horas (comidas, vacaciones, festivos) con aviso si hay citas dentro.
+  - Configuración: servicios y precios, profesionales y horario semanal de cada uno.
+  - Registro de todos los emails enviados.
 - **Modo demo**: `npm run seed` y un cron diario que reinicia los datos.
 
 ## Stack
@@ -35,7 +43,7 @@ npm run dev          # http://localhost:3000
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` / `npm start` | Build y servidor de producción |
 | `npm run seed` | Reinicia los datos: profesionales, servicios, horarios, bloqueos, ~40 citas en 14 días y emails de muestra |
-| `npm test` | Tests de la lógica de disponibilidad |
+| `npm test` | Tests: lógica de disponibilidad (pura) y movimiento de citas (contra una SQLite temporal con el esquema real) |
 | `npm run lint` | ESLint |
 
 ## Variables de entorno
@@ -71,7 +79,7 @@ src/app/api/cron/             recordatorios y reinicio de la demo
 
 ### Dobles reservas
 
-SQLite no tiene restricciones de exclusión por rango, así que cada cita activa ocupa filas en `franjas_ocupadas`, una por cada 15 minutos, con clave primaria `(profesionalId, inicio)`. La cita y sus franjas se insertan en una única transacción: si dos personas confirman a la vez horas que se pisan, la segunda viola la clave primaria y no se guarda nada. Al cancelar se borran las franjas y el hueco vuelve a ofrecerse. Con «me da igual», si el primer profesional acaba de ocuparse se intenta con el siguiente.
+SQLite no tiene restricciones de exclusión por rango, así que cada cita activa ocupa filas en `franjas_ocupadas`, una por cada 15 minutos, con clave primaria `(profesionalId, inicio)`. La cita y sus franjas se insertan en una única transacción: si dos personas confirman a la vez horas que se pisan, la segunda viola la clave primaria y no se guarda nada. Al cancelar se borran las franjas y el hueco vuelve a ofrecerse. Con «me da igual», si el primer profesional acaba de ocuparse se intenta con el siguiente. Mover una cita (formulario o arrastre) libera las franjas viejas y ocupa las nuevas en una sola transacción: si el destino está pillado, la cita se queda donde estaba.
 
 ### Horas y zonas horarias
 
@@ -108,8 +116,10 @@ Para probar un cron a mano:
 curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recordatorios
 ```
 
+**Arrastrar y soltar** usa la API nativa de HTML5, sin librerías; en pantallas táctiles no funciona, ahí se usa «Cambiar hora» en el detalle de la cita.
+
 **Cambios de esquema:** en local, `npx prisma migrate dev` (siempre trabaja contra `dev.db`). `npm run seed` solo aplica las migraciones sobre una base de datos vacía, así que para llevar un cambio de esquema a Turso lo más simple en una demo es recrear la base de datos y repetir el paso 2.
 
 ## Para convertirlo en un producto real
 
-Lo que esta demo deja fuera a propósito: límite de intentos en el login y en el formulario de reserva (rate limiting), usuarios y permisos por profesional, edición de horarios y servicios desde el panel, festivos automáticos, y la revisión de los textos legales por la asesoría de cada clínica.
+Lo que esta demo deja fuera a propósito: límite de intentos en el login y en el formulario de reserva (rate limiting), roles y permisos (todos los usuarios pueden hacer todo), alta de usuarios y profesionales desde el panel, festivos automáticos, historia clínica (exige otro nivel de seguridad y normativa; las clínicas ya usan software específico), y la revisión de los textos legales por la asesoría de cada clínica.
