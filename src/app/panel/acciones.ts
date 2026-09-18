@@ -9,7 +9,8 @@ import { anotar } from "@/lib/auditoria";
 import { requerirAdmin, requerirSesion } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
+import { aInstante, diaDe, formatoHora, hoy, minutosAHora, sumarDias } from "@/lib/fechas";
+import { festivosNacionales } from "@/lib/festivos";
 import { decodificar, leerCsv, MAX_FILAS, prepararPacientes, type FilaPaciente } from "@/lib/importar";
 import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { gestionaTodo, puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
@@ -199,6 +200,25 @@ export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
       ? `Bloqueo creado. Ojo: hay ${afectadas} ${afectadas === 1 ? "cita confirmada" : "citas confirmadas"} en ese periodo; no se cancelan solas, revísalas en la agenda.`
       : "Bloqueo creado. Esas horas ya no se ofrecen en la web.",
   };
+}
+
+/** Bloquea toda la clínica los festivos nacionales de ese año que aún no hayan pasado. Se puede repetir: no duplica. */
+export async function anadirFestivos(_: Estado, fd: FormData): Promise<Estado> {
+  const { user } = await requerirSesion();
+  if (!gestionaTodo(user)) return { error: "Los festivos de toda la clínica los pone recepción o administración." };
+  const anio = Number(fd.get("anio"));
+  if (!Number.isInteger(anio) || anio < 2020 || anio > 2100) return { error: "Año no válido" };
+
+  const festivos = festivosNacionales(anio).filter((f) => f.dia >= hoy());
+  const yaPuestos = new Set((await prisma.bloqueo.findMany({ where: { profesionalId: null, inicio: { in: festivos.map((f) => aInstante(f.dia)) } }, select: { inicio: true } })).map((b) => b.inicio.getTime()));
+  const nuevos = festivos.filter((f) => !yaPuestos.has(aInstante(f.dia).getTime()));
+  if (!nuevos.length) return { ok: `Los festivos nacionales de ${anio} ya estaban puestos.` };
+  await prisma.bloqueo.createMany({ data: nuevos.map((f) => ({ profesionalId: null, inicio: aInstante(f.dia), fin: aInstante(sumarDias(f.dia, 1)), motivo: `Festivo: ${f.nombre}` })) });
+  await anotar(user, "CREAR", "bloqueo", null, `${nuevos.length} festivos nacionales de ${anio}`);
+
+  const afectadas = await prisma.cita.count({ where: { estado: "CONFIRMADA", OR: nuevos.map((f) => ({ inicio: { gte: aInstante(f.dia), lt: aInstante(sumarDias(f.dia, 1)) } })) } });
+  refrescar();
+  return { ok: `${nuevos.length} festivos bloqueados. Añade a mano los de tu comunidad y tu municipio.${afectadas ? ` Ojo: hay ${afectadas} ${afectadas === 1 ? "cita confirmada" : "citas confirmadas"} en esos días; revísalas.` : ""}` };
 }
 
 export async function borrarBloqueo(id: string) {

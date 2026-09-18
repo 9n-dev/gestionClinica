@@ -32,4 +32,15 @@ test("un profesional ve la agenda de todos pero solo modifica lo suyo", async ({
   await abrirFicha(page, "paula ajena", paciente.nombre);
   await page.getByRole("region", { name: "Próximas citas" }).getByRole("link").last().click();
   await expect(page.getByRole("button", { name: "Marcar como atendida" })).toBeVisible();
+
+  // Y también los festivos de toda la clínica (el año que viene: los diez están por llegar). Repetir no duplica.
+  await page.goto("/panel/bloqueos");
+  const festivos = page.locator("form").filter({ hasText: "Festivos nacionales" });
+  await festivos.getByLabel("Año").selectOption({ index: 1 });
+  await festivos.getByRole("button", { name: "Bloquear los festivos" }).click();
+  await expect(festivos.getByRole("status")).toContainText("10 festivos bloqueados");
+  await expect(page.getByText("Festivo: Viernes Santo").first()).toBeVisible();
+  await festivos.getByLabel("Año").selectOption({ index: 1 });
+  await festivos.getByRole("button", { name: "Bloquear los festivos" }).click();
+  await expect(festivos.getByRole("status")).toContainText("ya estaban puestos");
 });

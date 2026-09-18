@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { formatoFechaHora, hoy, sumarDias } from "@/lib/fechas";
 import { gestionaTodo, puedeGestionar } from "@/lib/permisos";
 import { borrarBloqueo } from "../../acciones";
-import { FormularioBloqueo } from "./formulario";
+import { FormularioBloqueo, FormularioFestivos } from "./formulario";
 
 export const metadata: Metadata = { title: "Bloqueos" };
 
@@ -21,6 +21,7 @@ export default async function Bloqueos() {
         <h1 id="t-nuevo" className="text-3xl font-bold">Bloquear horas</h1>
         <p className="mb-5 mt-2 max-w-[60ch] text-pizarra">Las horas bloqueadas dejan de ofrecerse en la reserva online: vacaciones, comidas, formación o festivos.</p>
         <FormularioBloqueo profesionales={profesionales} todaLaClinica={todo} porDefecto={sumarDias(hoy(), 1)} />
+        {todo && <FormularioFestivos anio={Number(hoy().slice(0, 4))} />}
       </section>
       <section aria-labelledby="t-lista">
         <h2 id="t-lista" className="text-2xl font-bold">Bloqueos vigentes</h2>
