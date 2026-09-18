@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Pacientes" };
 const MAX = 50;
 
 export default async function Pacientes({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const q = ((await searchParams).q ?? "").trim().slice(0, 80);
   const nombre = normalizarNombre(q);
   const cifras = q.replace(/\D/g, "");
@@ -35,6 +35,7 @@ export default async function Pacientes({ searchParams }: { searchParams: Promis
         </div>
         <button className="btn btn-secundario">Buscar</button>
         {q && <Link href="/panel/pacientes" className="enlace self-center">Ver todos</Link>}
+        {user.rol === "ADMIN" && <Link href="/panel/pacientes/importar" className="btn btn-secundario sm:ml-auto">Importar pacientes</Link>}
       </form>
 
       {pacientes.length ? (

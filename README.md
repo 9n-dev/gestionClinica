@@ -23,6 +23,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional.
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
+  - **Importar pacientes** desde un CSV de Excel (solo administración): primero comprueba el fichero y enseña qué entraría y qué filas tienen problemas; al confirmar, no duplica a quien ya existe.
   - Bloqueo de horas (comidas, vacaciones, festivos) con aviso si hay citas dentro.
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
   - **Estadísticas** (solo administración): ingresos, citas atendidas, ocupación de la agenda y ausencias del mes, comparados con el anterior; tendencia de seis meses, reparto por servicio y por profesional.
@@ -56,8 +57,8 @@ npm run dev          # http://localhost:3000
 | `npm run migrar` | Aplica las migraciones pendientes a la base de datos de `DATABASE_URL` (local o Turso). `npm run build` lo ejecuta antes de compilar |
 | `npm run crear-admin -- email "Nombre"` | Crea (o recupera) un administrador e imprime un enlace de un solo uso para que elija su contraseña |
 | `npm run seed` | **Solo con `MODO_DEMO=1`.** Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
-| `npm test` | Tests de la lógica: disponibilidad y horario público (puros) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad y supresión de pacientes, enlaces de acceso, límite de intentos, migración de una base de datos antigua con datos, y mensajes al móvil con la API de Twilio simulada |
-| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
+| `npm test` | Tests de la lógica: disponibilidad, horario público, minutos disponibles para la ocupación y lectura del CSV de pacientes (puros) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad y supresión de pacientes, enlaces de acceso, límite de intentos, plazos de conservación, migración de una base de datos antigua con datos, y mensajes al móvil con la API de Twilio simulada |
+| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login, descarga y supresión de datos, recordatorios, mover una cita en pantalla táctil, estadísticas e importación de pacientes) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 
 ## Variables de entorno
@@ -96,6 +97,7 @@ src/lib/limite.ts             límite de intentos
 src/lib/auditoria.ts          registro de actividad
 src/lib/retencion.ts          plazos de conservación (cron diario)
 src/lib/estadisticas.ts       números del panel de estadísticas
+src/lib/importar.ts           lectura del CSV de pacientes (codificación, separador, columnas)
 src/lib/migraciones.ts        ejecutor de migraciones (build, seed y CLI)
 src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_DEMO
 src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
@@ -118,6 +120,10 @@ SQLite no tiene restricciones de exclusión por rango, así que cada cita activa
 ### Pacientes
 
 Un paciente es un teléfono más un nombre normalizado (sin acentos ni mayúsculas), con restricción única en la base de datos. El mismo móvil con otro nombre es otro paciente: es el caso de quien reserva para su hijo. La cita se enlaza a su paciente con `connectOrCreate` dentro de la misma transacción que ocupa las franjas, y conserva además lo que se escribió al reservar. La migración que introdujo la tabla crea los pacientes de las citas que ya existían. No hay fusión de duplicados: si alguien reserva una vez como «Pepe» y otra como «José», son dos fichas.
+
+### Importar pacientes
+
+CSV y no `.xlsx` a propósito: leer Excel exige una librería (la de npm más conocida está abandonada y con avisos de seguridad) y desde Excel es «Guardar como → CSV». A cambio, el lector se ocupa de lo que de verdad rompe estas importaciones: el Excel español separa con punto y coma y guarda en Windows-1252, no en UTF-8, así que se prueba UTF-8 estricto y, si los bytes no lo son, se lee como Windows-1252 (tildes y eñes intactas en los dos casos). Las columnas se reconocen por su nombre (Nombre, Apellidos, Teléfono o Móvil, Email o Correo, Notas u Observaciones). Va en dos pasos: comprobar, que no escribe nada y lista las filas con problemas con su número de línea, y confirmar. Las filas confirmadas vuelven del navegador, así que el servidor las valida otra vez con el mismo esquema que el resto de la app. La identidad es la de siempre (teléfono + nombre normalizado): repetir la importación no duplica a nadie.
 
 ### Usuarios, roles y contraseñas
 
@@ -217,7 +223,7 @@ Lo que esta demo deja fuera a propósito:
 
 - **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
-- **Pacientes**: fusión de fichas duplicadas, alta sin cita e importación de la cartera que ya tenga la clínica.
+- **Pacientes**: fusión de fichas duplicadas y alta sin cita.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.
 - Festivos automáticos, citas periódicas, lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

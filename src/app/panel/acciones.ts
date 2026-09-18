@@ -10,6 +10,7 @@ import { requerirAdmin, requerirSesion } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
+import { decodificar, leerCsv, MAX_FILAS, prepararPacientes, type FilaPaciente } from "@/lib/importar";
 import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
@@ -107,6 +108,50 @@ export async function suprimirDatosPaciente(id: string): Promise<Estado> {
   await anotar(user, "BORRAR", "paciente", id, "supresión: datos anonimizados");
   refrescar();
   return { ok: "Datos eliminados." };
+}
+
+// ---------- Importar pacientes (solo ADMIN) ----------
+
+export type EstadoImportacion = {
+  error?: string;
+  comprobado?: { validas: FilaPaciente[]; errores: { linea: number; texto: string; motivo: string }[]; repetidas: number };
+  hecho?: { creados: number; yaExistian: number };
+};
+
+/** Paso 1: lee el CSV y dice qué entraría. No escribe nada. */
+export async function comprobarImportacion(_: EstadoImportacion, fd: FormData): Promise<EstadoImportacion> {
+  await requerirAdmin();
+  const fichero = fd.get("fichero");
+  if (!(fichero instanceof File) || !fichero.size) return { error: "Elige un fichero CSV." };
+  const r = prepararPacientes(leerCsv(decodificar(new Uint8Array(await fichero.arrayBuffer()))));
+  return "error" in r ? { error: r.error } : { comprobado: { ...r, errores: r.errores.slice(0, 100) } };
+}
+
+/** Paso 2: crea los pacientes que no existan ya. Las filas vuelven del navegador, así que se validan otra vez. */
+export async function confirmarImportacion(_: EstadoImportacion, fd: FormData): Promise<EstadoImportacion> {
+  const { user } = await requerirAdmin();
+  let filas: unknown;
+  try {
+    filas = JSON.parse(String(fd.get("filas")));
+  } catch {
+    return { error: "No se han recibido los pacientes. Vuelve a comprobar el fichero." };
+  }
+  // El esquema espera el email como texto ("" si no hay), y las filas ya validadas lo traen como null.
+  const conEmailDeTexto = (f: unknown) => (f && typeof f === "object" ? { ...f, email: (f as { email?: unknown }).email ?? "" } : f);
+  const datos = z.array(z.preprocess(conEmailDeTexto, esquemaPaciente)).max(MAX_FILAS).safeParse(filas);
+  if (!datos.success) return { error: "Los datos no son válidos. Vuelve a comprobar el fichero." };
+
+  const nuevos = datos.data.map((p) => ({ ...p, notas: p.notas || null, nombreNorm: normalizarNombre(p.nombre) }));
+  // Misma identidad que en la reserva: teléfono + nombre normalizado. Lo que ya existe no se toca.
+  const existentes = await prisma.paciente.findMany({ where: { telefono: { in: nuevos.map((p) => p.telefono) } }, select: { telefono: true, nombreNorm: true } });
+  const ya = new Set(existentes.map((p) => `${p.telefono}|${p.nombreNorm}`));
+  const crear = nuevos.filter((p) => !ya.has(`${p.telefono}|${p.nombreNorm}`));
+  if (crear.length) {
+    await prisma.paciente.createMany({ data: crear });
+    await anotar(user, "CREAR", "paciente", null, `importación: ${crear.length} pacientes`);
+  }
+  refrescar();
+  return { hecho: { creados: crear.length, yaExistian: nuevos.length - crear.length } };
 }
 
 // ---------- Bloqueos ----------
