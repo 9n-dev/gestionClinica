@@ -114,6 +114,8 @@ src/app/api/cron/             recordatorios y reinicio de la demo
 src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS
 e2e/                          pruebas de extremo a extremo (Playwright)
 .github/workflows/ci.yml      lint, tests y e2e en cada push
+.github/dependabot.yml        actualizaciones semanales agrupadas
+next.config.ts                cabeceras de seguridad (CSP, HSTS…)
 ```
 
 ### Dobles reservas
@@ -162,6 +164,14 @@ Una agenda de podología con notas es dato de salud, así que también se apunta
 - **Acceso y portabilidad**: «Descargar sus datos» genera un JSON con la ficha, todas sus citas y los emails que se le han enviado.
 - **Retención**: el cron diario borra lo que cumple su plazo (`src/lib/retencion.ts`): citas canceladas y copia de emails y mensajes a los 12 meses, registro de actividad a los 24. Es lo que promete la política de privacidad. Anonimizar a los pacientes que llevan años sin venir también está, pero **apagado hasta que la clínica fije `RETENCION_PACIENTES_MESES`**: es irreversible y el plazo es una decisión suya, no un valor por defecto. Lo que hace el sistema queda en «Actividad» a nombre de «sistema».
 - **Supresión**: solo administración, y solo si no tiene citas pendientes. **Anonimiza en vez de borrar**: se van nombre, teléfono, email, notas y los emails guardados de sus citas (llevan su nombre en el texto); las citas pasadas se quedan como «Paciente eliminado» para que la agenda y los números de meses anteriores cuadren. Si vuelve a reservar, es un paciente nuevo.
+
+### Cabeceras y dependencias
+
+`next.config.ts` pone en todas las respuestas CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy`. La CSP es la que se puede tener sin nonces: Next inyecta scripts en línea y la app usa atributos `style`, así que `script-src` y `style-src` llevan `'unsafe-inline'`. No frena un XSS en línea (de eso se ocupa React, que escapa lo que pinta), pero sí cierra scripts, marcos y envíos de formularios a otros orígenes, `<base>`, `<object>` y que otra web meta el panel en un iframe. Un test de extremo a extremo recorre la app con la consola abierta y falla si la CSP bloquea algo propio. Pasar a nonces (middleware) es el siguiente paso si se quiere una CSP estricta.
+
+Dependabot abre cada semana una PR con parches y versiones menores agrupados; el CI dice si se puede mezclar. Los saltos de versión mayor de Next, React y Prisma se deciden a mano.
+
+`npm audit` avisa de 6 vulnerabilidades y ninguna se ejecuta en esta app: `mysql2` y `deepmerge-ts` los arrastra el CLI de Prisma (la base de datos es SQLite/libSQL, el controlador de MySQL no se carga nunca y el CLI solo corre al instalar y en local), y `postcss` va dentro de Next y solo procesa el CSS propio al compilar, mientras que sus avisos son sobre CSS de un atacante. Lo que propone `npm audit fix --force` es bajar Prisma a la versión 6 o saltar a Next 16: cambiar el stack para no arreglar ningún riesgo real.
 
 ### Límite de intentos
 

@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Parches y versiones menores, agrupados en una sola PR semanal; el CI (lint, tests y e2e) dice si se puede mezclar.
+    groups:
+      menores-y-parches:
+        update-types: [minor, patch]
+    ignore:
+      # Los saltos de versión mayor del stack se deciden a mano.
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
