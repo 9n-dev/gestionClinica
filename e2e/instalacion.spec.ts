@@ -1,7 +1,7 @@
 import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { CRON_SECRET, REAL } from "../playwright.config";
-import { entrar } from "./ayudas";
+import { entrar, irAGestion } from "./ayudas";
 
 // Una clínica que lo instala: sin MODO_DEMO, base de datos recién migrada y vacía.
 test.use({ baseURL: REAL.url });
@@ -29,7 +29,7 @@ test("de la base de datos vacía a la primera cita reservable, sin rastro de la 
   await entrar(page, jefa.email, jefa.password);
 
   // 3. Configuración: profesional, su horario y un servicio
-  await page.getByRole("link", { name: "Configuración" }).click();
+  await irAGestion(page, "Configuración");
   await page.getByText("Añadir un profesional").click();
   const altaPro = page.locator("form").filter({ hasText: "Añadir profesional" });
   await altaPro.getByLabel("Nombre").fill("Dra. Ana Jefa");

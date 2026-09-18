@@ -1,44 +1,36 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requerirSesion } from "@/lib/auth";
 import { CLINICA } from "@/lib/clinica";
-import { salir } from "@/app/panel/acciones/sesion";
+import { Menu } from "./Menu";
 
 export const metadata: Metadata = { title: { default: "Panel", template: `%s · Panel ${CLINICA.nombre}` }, robots: { index: false } };
 export const dynamic = "force-dynamic";
 
+// Lo de todos los días, a la vista; lo esporádico, en «Gestión». «Nueva cita» no está aquí: es una acción, va como botón.
 const ENLACES = [
   { href: "/panel/agenda", texto: "Agenda" },
-  { href: "/panel/citas/nueva", texto: "Nueva cita" },
   { href: "/panel/pacientes", texto: "Pacientes" },
   { href: "/panel/espera", texto: "Lista de espera" },
   { href: "/panel/caja", texto: "Caja" },
   { href: "/panel/bloqueos", texto: "Bloqueos" },
-  { href: "/panel/emails", texto: "Emails y mensajes" },
+];
+const GESTION = [
   { href: "/panel/estadisticas", texto: "Estadísticas", admin: true },
+  { href: "/panel/emails", texto: "Emails y mensajes" },
+  { href: "/panel/actividad", texto: "Actividad", admin: true },
   { href: "/panel/configuracion", texto: "Configuración", admin: true },
   { href: "/panel/usuarios", texto: "Usuarios", admin: true },
-  { href: "/panel/actividad", texto: "Actividad", admin: true },
 ];
 
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {
   const sesion = await requerirSesion();
-  const item = "inline-flex min-h-11 items-center rounded-md px-3 font-bold text-white hover:bg-white/15";
+  const gestion = GESTION.filter((e) => !e.admin || sesion.user.rol === "ADMIN").map(({ href, texto }) => ({ href, texto }));
   return (
     <>
       <header className="bg-tinta text-white">
         <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 sm:px-6">
-          <p className="font-display text-lg font-bold">Panel de {CLINICA.nombre}</p>
-          <nav aria-label="Panel" className="flex-1">
-            <ul className="flex flex-wrap gap-1">
-              {ENLACES.filter((e) => !e.admin || sesion.user.rol === "ADMIN").map((e) => <li key={e.href}><Link href={e.href} className={item}>{e.texto}</Link></li>)}
-            </ul>
-          </nav>
-          <Link href="/" className={item}>Ver la web</Link>
-          <Link href="/panel/cuenta" className={item}>Mi cuenta</Link>
-          <form action={salir}>
-            <button className={`${item} cursor-pointer`}>Salir<span className="sr-only"> ({sesion.user.email})</span></button>
-          </form>
+          <p className="w-full font-display text-lg font-bold md:w-auto">Panel de {CLINICA.nombre}</p>
+          <Menu enlaces={ENLACES} gestion={gestion} usuario={sesion.user.nombre} />
         </div>
       </header>
       <main id="contenido" className="mx-auto w-full max-w-[100rem] px-4 py-8 sm:px-6">{children}</main>

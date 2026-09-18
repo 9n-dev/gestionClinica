@@ -92,10 +92,9 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
           <h1 className="text-3xl font-bold first-letter:uppercase">{titulo}</h1>
           <p className="mt-1 text-pizarra">
             {activas.length} {activas.length === 1 ? "cita" : "citas"}
-            {canceladas.length > 0 && `, ${canceladas.length} ${canceladas.length === 1 ? "cancelada" : "canceladas"}`}. Arrastra una cita para cambiarla de hora; pulsa en un hueco libre para crear una.
+            {canceladas.length > 0 && `, ${canceladas.length} ${canceladas.length === 1 ? "cancelada" : "canceladas"}`}. Pulsa en un hueco libre para dar una cita a esa hora.
           </p>
         </div>
-        <Link href={`/panel/citas/nueva?dia=${fecha}${filtro ? `&profesional=${filtro}` : ""}`} className="btn btn-primario">Nueva cita</Link>
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">

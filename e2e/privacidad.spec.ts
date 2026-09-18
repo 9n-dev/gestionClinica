@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { abrirFicha, DEMO, entrar, reservarPorLaWeb } from "./ayudas";
+import { abrirFicha, DEMO, entrar, reservarPorLaWeb, salir } from "./ayudas";
 
 const paciente = { nombre: "Borja Olvido Sanz", telefono: "698 765 432", email: "borja@paciente.test" };
 
@@ -17,7 +17,7 @@ test("recepción descarga los datos de un paciente; administración los elimina;
   expect(datos.paciente).toMatchObject({ nombre: paciente.nombre, telefono: "698765432", email: paciente.email });
   expect(datos.citas).toHaveLength(1);
   expect(datos.citas[0]).toMatchObject({ servicio: "Quiropodia", estado: "CONFIRMADA" });
-  await page.getByRole("button", { name: /Salir/ }).click();
+  await salir(page);
 
   // Derecho de supresión: con una cita pendiente no deja
   await entrar(page, DEMO.admin, DEMO.password);

@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { DEMO, enlaceDelEmail, entrar } from "./ayudas";
+import { abrirCuenta, DEMO, enlaceDelEmail, entrar, irAGestion, salir } from "./ayudas";
 
 test("administración da de alta a alguien del equipo, que elige su contraseña y entra sin permisos de administración", async ({ page, browser }) => {
   const eva = { nombre: "Eva Prueba", email: "eva@clinica.test", password: "una frase larga y fácil" };
 
   await entrar(page, DEMO.admin, DEMO.password);
-  await page.getByRole("link", { name: "Usuarios" }).click();
+  await irAGestion(page, "Usuarios");
   const alta = page.locator("form").filter({ hasText: "Crear usuario" });
   await alta.getByLabel("Nombre").fill(eva.nombre);
   await alta.getByLabel("Email").fill(eva.email);
@@ -15,7 +15,7 @@ test("administración da de alta a alguien del equipo, que elige su contraseña 
 
   // El enlace solo viaja en el email
   const enlace = await enlaceDelEmail(page, "Tu acceso al panel", /http[^"<\s]+\/panel\/acceso\/[\w-]+/);
-  await page.getByRole("button", { name: /Salir/ }).click();
+  await salir(page);
 
   await page.goto(enlace);
   await expect(page.getByText(eva.email)).toBeVisible();
@@ -35,7 +35,7 @@ test("administración da de alta a alguien del equipo, que elige su contraseña 
   // Entra como Equipo: ni ve ni puede abrir lo de administración
   await entrar(page, eva.email, eva.password);
   await expect(page.getByRole("link", { name: "Pacientes" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Configuración" })).toHaveCount(0);
+  await expect(page.locator("summary", { hasText: "Gestión" })).toHaveCount(0);
   await page.goto("/panel/usuarios");
   await expect(page).toHaveURL(/\/panel\/agenda/);
 
@@ -45,6 +45,7 @@ test("administración da de alta a alguien del equipo, que elige su contraseña 
   await entrar(otraPagina, eva.email, eva.password);
 
   const nueva = "otra frase todavía más larga";
+  await abrirCuenta(page);
   await page.getByRole("link", { name: "Mi cuenta" }).click();
   await page.getByLabel("Contraseña actual").fill("no es esta");
   await page.getByLabel("Contraseña nueva").fill(nueva);
@@ -76,7 +77,7 @@ test("los usuarios de la demo no se pueden cambiar ni recuperar", async ({ page 
   await expect(recepcion.getByRole("button")).toHaveCount(0);
 
   // Pedir la recuperación responde lo mismo que con un email que no existe, y no sale ningún email
-  await page.getByRole("button", { name: /Salir/ }).click();
+  await salir(page);
   await page.goto("/panel/recuperar");
   await page.getByLabel("Email").fill(DEMO.recepcion);
   await page.getByRole("button", { name: "Enviarme el enlace" }).click();

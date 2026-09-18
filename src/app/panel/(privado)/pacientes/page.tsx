@@ -62,7 +62,7 @@ export default async function Pacientes({ searchParams }: { searchParams: Promis
                 const proxima = p.citas.filter((c) => c.estado === "CONFIRMADA" && c.inicio > ahora).sort((a, b) => a.inicio.getTime() - b.inicio.getTime())[0];
                 return (
                   <tr key={p.id} className="border-b border-linea last:border-0">
-                    <th scope="row" className="p-3"><Link href={`/panel/pacientes/${p.id}`} className="enlace font-bold">{p.nombre}</Link></th>
+                    <th scope="row" className="whitespace-nowrap p-3"><Link href={`/panel/pacientes/${p.id}`} className="enlace font-bold">{p.nombre}</Link></th>
                     <td className="p-3 tabular-nums">{p.telefono}</td>
                     <td className="p-3 tabular-nums">{p.citas.filter((c) => c.estado === "ATENDIDA").length}</td>
                     <td className="p-3 tabular-nums">{faltas ? <span className="rounded bg-ambar-claro px-2 py-0.5 font-bold">{faltas}</span> : "0"}</td>

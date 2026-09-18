@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirFicha, DEMO, entrar, reservarPorLaWeb } from "./ayudas";
+import { abrirFicha, DEMO, entrar, reservarPorLaWeb, salir } from "./ayudas";
 
 test("un profesional ve la agenda de todos pero solo modifica lo suyo", async ({ page }) => {
   const paciente = { nombre: "Paula Ajena Ríos", telefono: "644 555 666", email: "paula@paciente.test" };
@@ -17,7 +17,7 @@ test("un profesional ve la agenda de todos pero solo modifica lo suyo", async ({
   const fecha = new URL(page.url()).searchParams.get("fecha");
   await page.goto(`/panel/agenda?vista=dia&fecha=${fecha}&profesional=todos`); // su agenda se abre filtrada por su columna
   await page.getByRole("button", { name: "Mover una cita" }).click();
-  await page.getByRole("link", { name: new RegExp(paciente.nombre) }).click();
+  await expect(page.getByRole("button", { name: new RegExp(paciente.nombre) })).toBeDisabled(); // la de la Dra. Serrano ni se puede elegir
   await expect(page.getByRole("button", { name: /^Mover a las/ })).toHaveCount(0);
 
   // Solo puede dar citas y bloquear horas en su columna, y no bloquear toda la clínica
@@ -27,7 +27,7 @@ test("un profesional ve la agenda de todos pero solo modifica lo suyo", async ({
   await expect(page.getByLabel("A quién afecta").getByRole("option")).toHaveText(["Dr. Marcos Ortiz"]);
 
   // Recepción, que no está ligada a nadie, sí gestiona esa cita
-  await page.getByRole("button", { name: /Salir/ }).click();
+  await salir(page);
   await entrar(page, DEMO.recepcion, DEMO.password);
   await abrirFicha(page, "paula ajena", paciente.nombre);
   await page.getByRole("region", { name: "Próximas citas" }).getByRole("link").last().click();

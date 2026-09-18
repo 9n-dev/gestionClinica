@@ -24,7 +24,7 @@ test("todas las respuestas llevan las cabeceras de seguridad y la app funciona b
   await page.getByRole("button", { name: "Mover una cita" }).click(); // componente de cliente: necesita sus scripts
   await expect(page.getByText("Toca la cita que quieres mover")).toBeVisible();
   await page.goto("/panel/emails");
-  await page.locator("details").first().click();
-  await expect(page.locator("iframe").first()).toBeVisible();
+  await page.locator("main details").first().click(); // el primer email, no los desplegables del menú
+  await expect(page.locator("main iframe").first()).toBeVisible();
   expect(violaciones).toEqual([]);
 });

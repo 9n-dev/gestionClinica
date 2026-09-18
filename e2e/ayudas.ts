@@ -10,6 +10,20 @@ export async function entrar(page: Page, email: string, password: string) {
   await expect(page).toHaveURL(/\/panel\/agenda/);
 }
 
+/** Lo esporádico vive en el desplegable «Gestión» (administración) y la cuenta, en el del nombre. */
+export async function irAGestion(page: Page, enlace: string) {
+  await page.locator("summary", { hasText: "Gestión" }).click();
+  await page.getByRole("link", { name: enlace, exact: true }).click();
+}
+export async function abrirCuenta(page: Page) {
+  await page.locator("summary", { hasText: "Cuenta de" }).click();
+}
+export async function salir(page: Page) {
+  await abrirCuenta(page);
+  await page.getByRole("button", { name: "Salir" }).click();
+  await page.waitForURL(/\/panel\/login/);
+}
+
 export type PacienteE2E = { nombre: string; telefono: string; email: string };
 
 /** Reserva pública completa: servicio → profesional → día y hora → datos. Acaba en la página de «Cita confirmada». */
