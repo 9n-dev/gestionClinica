@@ -20,16 +20,24 @@ const HUELLAS: Record<string, string> = {
 export async function migrar(url = process.env.DATABASE_URL ?? "file:./dev.db", authToken = process.env.DATABASE_AUTH_TOKEN || undefined) {
   const db = createClient({ url, authToken });
   try {
-    await db.execute(`CREATE TABLE IF NOT EXISTS "_migraciones" ("nombre" TEXT NOT NULL PRIMARY KEY, "aplicadaAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
     const hay = async (sql: string) => (await db.execute(sql)).rows.length > 0;
-    const hechas = new Set((await db.execute(`SELECT "nombre" FROM "_migraciones"`)).rows.map((r) => String(r.nombre)));
-    // En local las aplica `prisma migrate dev`, que lleva su propia cuenta.
-    if (await hay(tiene("_prisma_migrations")))
-      for (const r of (await db.execute(`SELECT "migration_name" FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`)).rows) hechas.add(String(r.migration_name));
-
     const dir = join(process.cwd(), "prisma", "migrations");
+    const todas = readdirSync(dir).filter((f) => !f.endsWith(".toml")).sort();
+
+    // Una base de datos local que ya lleva `prisma migrate dev` es suya: una tabla nuestra ahí le parecería
+    // una discrepancia con el esquema y pediría reiniciarla. Solo se avisa si le falta algo.
+    if (await hay(tiene("_prisma_migrations"))) {
+      const suyas = new Set((await db.execute(`SELECT "migration_name" FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`)).rows.map((r) => String(r.migration_name)));
+      const faltan = todas.filter((m) => !suyas.has(m));
+      if (faltan.length) console.warn(`Esta base de datos la gestiona Prisma. Migraciones sin aplicar: ${faltan.join(", ")}. Ejecuta: npx prisma migrate dev`);
+      return [];
+    }
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS "_migraciones" ("nombre" TEXT NOT NULL PRIMARY KEY, "aplicadaAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+    const hechas = new Set((await db.execute(`SELECT "nombre" FROM "_migraciones"`)).rows.map((r) => String(r.nombre)));
+
     const aplicadas: string[] = [];
-    for (const m of readdirSync(dir).filter((f) => !f.endsWith(".toml")).sort()) {
+    for (const m of todas) {
       const apuntar = { sql: `INSERT OR IGNORE INTO "_migraciones" ("nombre") VALUES (?)`, args: [m] };
       if (hechas.has(m) || (HUELLAS[m] && (await hay(HUELLAS[m])))) {
         await db.execute(apuntar);

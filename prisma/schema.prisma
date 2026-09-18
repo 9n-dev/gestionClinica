@@ -80,14 +80,16 @@ model HorarioLaboral {
 // Identidad del paciente: mismo teléfono y mismo nombre (sin acentos ni mayúsculas).
 // Mismo teléfono con otro nombre es otro paciente: la madre que reserva para su hijo con su móvil.
 model Paciente {
-  id         String   @id @default(cuid())
-  nombre     String
-  nombreNorm String // normalizarNombre(nombre); también sirve para buscar sin acentos
-  telefono   String
-  email      String?
-  notas      String? // internas, de la ficha. No es historia clínica.
-  creadoAt   DateTime @default(now())
-  citas      Cita[]
+  id          String    @id @default(cuid())
+  nombre      String
+  nombreNorm  String // normalizarNombre(nombre); también sirve para buscar sin acentos
+  telefono    String
+  email       String?
+  notas       String? // internas, de la ficha. No es historia clínica.
+  creadoAt    DateTime  @default(now())
+  // Derecho de supresión: se vacían sus datos y los de sus citas, que se quedan para que la agenda pasada cuadre.
+  eliminadoAt DateTime?
+  citas       Cita[]
 
   @@unique([telefono, nombreNorm])
   @@map("pacientes")
@@ -161,6 +163,7 @@ model Usuario {
   accesoExpira    DateTime?
   profesionalId   String? // si está ligado a un profesional, su agenda se abre filtrada
   profesional     Profesional? @relation(fields: [profesionalId], references: [id], onDelete: SetNull)
+  auditoria       Auditoria[]
 
   @@map("usuarios")
 }
@@ -191,4 +194,22 @@ model Intento {
   @@id([clave, ventana])
   @@index([ventana])
   @@map("intentos")
+}
+
+// Registro de actividad: quién abrió o cambió qué. Nunca lleva datos del paciente (solo ids y nombres de campos),
+// para que sobreviva a una supresión sin guardar lo que se pidió borrar.
+model Auditoria {
+  id           String   @id @default(cuid())
+  creadoAt     DateTime @default(now())
+  usuarioId    String?
+  usuario      Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioEmail String // foto: sobrevive al borrado del usuario
+  accion       String // VER, CREAR, EDITAR, BORRAR, EXPORTAR, MOVER, CANCELAR, ESTADO, ENTRAR
+  entidad      String // paciente, cita, usuario, configuracion, bloqueo, sesion
+  entidadId    String?
+  detalle      String?
+
+  @@index([creadoAt])
+  @@index([entidad, entidadId])
+  @@map("auditoria")
 }

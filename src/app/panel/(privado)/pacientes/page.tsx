@@ -15,7 +15,7 @@ export default async function Pacientes({ searchParams }: { searchParams: Promis
   const nombre = normalizarNombre(q);
   const cifras = q.replace(/\D/g, "");
   const pacientes = await prisma.paciente.findMany({
-    where: q ? { OR: [...(nombre ? [{ nombreNorm: { contains: nombre } }] : []), ...(cifras ? [{ telefono: { contains: cifras } }] : [])] } : {},
+    where: q ? { eliminadoAt: null, OR: [...(nombre ? [{ nombreNorm: { contains: nombre } }] : []), ...(cifras ? [{ telefono: { contains: cifras } }] : [])] } : { eliminadoAt: null },
     orderBy: { nombreNorm: "asc" },
     take: MAX + 1,
     // ponytail: trae todas las citas de los pacientes listados para contarlas aquí; con historiales de cientos de citas, pasar a groupBy.

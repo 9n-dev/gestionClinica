@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { guardarPaciente, type Estado } from "../../../acciones";
+import { guardarPaciente, suprimirDatosPaciente, type Estado } from "../../../acciones";
 
 export function FormularioPaciente({ p }: { p: { id: string; nombre: string; telefono: string; email: string; notas: string } }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarPaciente.bind(null, p.id), {});
@@ -29,5 +29,19 @@ export function FormularioPaciente({ p }: { p: { id: string; nombre: string; tel
         <p role="status" className={`font-bold ${estado.error ? "text-error" : "text-exito"}`}>{estado.error ?? estado.ok}</p>
       </div>
     </form>
+  );
+}
+
+export function FormularioSupresion({ id, nombre }: { id: string; nombre: string }) {
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(suprimirDatosPaciente.bind(null, id), {});
+  return (
+    <details className="rounded-md border border-linea bg-white px-4 py-2.5">
+      <summary className="cursor-pointer font-bold text-error">Eliminar sus datos</summary>
+      <form action={accion} className="mt-3 max-w-md">
+        <p className="mb-3">Se borran nombre, teléfono, email, notas y los emails guardados de {nombre}. Sus citas pasadas se quedan en la agenda sin nombre. <strong>No se puede deshacer.</strong></p>
+        <button className="btn btn-peligro" disabled={enviando}>{enviando ? "Eliminando…" : "Sí, eliminar sus datos"}</button>
+        {estado.error && <p role="alert" className="mt-3 font-bold text-error">{estado.error}</p>}
+      </form>
+    </details>
   );
 }

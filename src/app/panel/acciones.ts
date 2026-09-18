@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { hash } from "bcryptjs";
 import { enviarAcceso } from "@/lib/acceso";
+import { anotar } from "@/lib/auditoria";
 import { requerirAdmin, requerirSesion } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
-import { normalizarNombre } from "@/lib/pacientes";
+import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
 import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
@@ -22,54 +23,61 @@ const refrescar = () => revalidatePath("/panel", "layout");
 // ---------- Citas ----------
 
 export async function cancelarDesdePanel(id: string) {
-  await requerirSesion();
-  await cancelarCita({ id });
+  const { user } = await requerirSesion();
+  if (await cancelarCita({ id })) await anotar(user, "CANCELAR", "cita", id);
   refrescar();
 }
 
 export async function cambiarEstado(id: string, estado: "ATENDIDA" | "NO_PRESENTADA") {
-  await requerirSesion();
-  await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado } });
+  const { user } = await requerirSesion();
+  const { count } = await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado } });
+  if (count) await anotar(user, "ESTADO", "cita", id, estado);
   refrescar();
 }
 
 export async function guardarNotas(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const datos = esquemaNotas.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   await prisma.cita.update({ where: { id }, data: { notas: datos.data.notas || null } });
+  await anotar(user, "EDITAR", "cita", id, "notas");
   refrescar();
   return { ok: "Notas guardadas." };
 }
 
 export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const valores = Object.fromEntries([...fd].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const datos = esquemaCitaPanel.safeParse(valores);
   if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
   const r = await crearCita(datos.data, true);
   if (!r.ok) return { error: r.error, valores };
+  await anotar(user, "CREAR", "cita", r.id, `${datos.data.dia} ${datos.data.hora}`);
   refrescar();
   redirect(`/panel/citas/${r.id}?creada=1`);
 }
 
 export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const datos = esquemaMover.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const r = await moverCita(id, datos.data);
   if (!r.ok) return { error: r.error };
+  await anotar(user, "MOVER", "cita", id, `→ ${datos.data.dia} ${datos.data.hora} ${datos.data.profesional}`);
   refrescar();
   redirect(`/panel/citas/${id}?movida=1`);
 }
 
 /** Arrastrar y soltar en la agenda. Recibe el instante de destino en ISO. */
 export async function moverArrastrando(id: string, profesionalSlug: string, inicioIso: string) {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const inicio = new Date(inicioIso);
   if (isNaN(inicio.getTime())) return { ok: false as const, error: "Hora no válida" };
   const r = await moverCita(id, { profesional: profesionalSlug, dia: diaDe(inicio), hora: formatoHora(inicio) });
-  if (r.ok) refrescar();
+  if (r.ok) {
+    await anotar(user, "MOVER", "cita", id, `→ ${diaDe(inicio)} ${formatoHora(inicio)} ${profesionalSlug}`);
+    refrescar();
+  }
   return r;
 }
 
@@ -77,7 +85,7 @@ export async function moverArrastrando(id: string, profesionalSlug: string, inic
 
 /** Cambia la ficha. Las citas conservan lo que se escribió al reservar. */
 export async function guardarPaciente(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const datos = esquemaPaciente.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   try {
@@ -86,8 +94,19 @@ export async function guardarPaciente(id: string, _: Estado, fd: FormData): Prom
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: "Ya hay otro paciente con ese nombre y ese teléfono." };
     throw e;
   }
+  await anotar(user, "EDITAR", "paciente", id, "datos de contacto y notas");
   refrescar();
   return { ok: "Ficha guardada." };
+}
+
+/** Derecho de supresión. Solo administración: no se puede deshacer. */
+export async function suprimirDatosPaciente(id: string): Promise<Estado> {
+  const { user } = await requerirAdmin();
+  const r = await suprimirPaciente(id);
+  if (!r.ok) return { error: r.error };
+  await anotar(user, "BORRAR", "paciente", id, "supresión: datos anonimizados");
+  refrescar();
+  return { ok: "Datos eliminados." };
 }
 
 // ---------- Bloqueos ----------
@@ -100,7 +119,7 @@ const aInstanteLocal = (s: string) => {
 };
 
 export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const datos = esquemaBloqueo.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const inicio = aInstanteLocal(datos.data.inicio);
@@ -108,7 +127,8 @@ export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
   if (fin <= inicio) return { error: "El final tiene que ser posterior al inicio." };
   const profesionalId = datos.data.profesionalId || null;
 
-  await prisma.bloqueo.create({ data: { profesionalId, inicio, fin, motivo: datos.data.motivo } });
+  const bloqueo = await prisma.bloqueo.create({ data: { profesionalId, inicio, fin, motivo: datos.data.motivo } });
+  await anotar(user, "CREAR", "bloqueo", bloqueo.id, `${datos.data.inicio} → ${datos.data.fin}`);
   const afectadas = await prisma.cita.count({
     where: { estado: "CONFIRMADA", inicio: { lt: fin }, fin: { gt: inicio }, ...(profesionalId ? { profesionalId } : {}) },
   });
@@ -121,8 +141,8 @@ export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
 }
 
 export async function borrarBloqueo(id: string) {
-  await requerirSesion();
-  await prisma.bloqueo.deleteMany({ where: { id } });
+  const { user } = await requerirSesion();
+  if ((await prisma.bloqueo.deleteMany({ where: { id } })).count) await anotar(user, "BORRAR", "bloqueo", id);
   refrescar();
 }
 
@@ -139,7 +159,7 @@ async function slugLibre(nombre: string, existe: (slug: string) => Promise<unkno
 
 /** id = null: alta. */
 export async function guardarServicio(id: string | null, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirAdmin();
+  const { user } = await requerirAdmin();
   const datos = esquemaServicio.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const { precio, ...resto } = datos.data;
@@ -149,13 +169,14 @@ export async function guardarServicio(id: string | null, _: Estado, fd: FormData
     const slug = await slugLibre(data.nombre, (slug) => prisma.servicio.findUnique({ where: { slug } }));
     await prisma.servicio.create({ data: { ...data, slug, orden: await prisma.servicio.count() } });
   }
+  await anotar(user, id ? "EDITAR" : "CREAR", "configuracion", id, `servicio: ${data.nombre}, ${data.duracionMin} min, ${precio} €`);
   revalidatePath("/", "layout");
   return { ok: id ? "Guardado." : "Servicio creado." };
 }
 
 /** id = null: alta. Nace sin horario: hasta que se le ponga, no ofrece huecos. */
 export async function guardarProfesional(id: string | null, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirAdmin();
+  const { user } = await requerirAdmin();
   const datos = esquemaProfesional.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   if (id) await prisma.profesional.update({ where: { id }, data: datos.data });
@@ -163,6 +184,7 @@ export async function guardarProfesional(id: string | null, _: Estado, fd: FormD
     const slug = await slugLibre(datos.data.nombre, (slug) => prisma.profesional.findUnique({ where: { slug } }));
     await prisma.profesional.create({ data: { ...datos.data, slug, orden: await prisma.profesional.count() } });
   }
+  await anotar(user, id ? "EDITAR" : "CREAR", "configuracion", id, `profesional: ${datos.data.nombre}`);
   revalidatePath("/", "layout");
   return { ok: id ? "Guardado." : "Profesional creado. Ponle horario aquí abajo para que admita citas." };
 }
@@ -173,7 +195,7 @@ const aMinutos = (hhmm: string) => {
 };
 
 export async function guardarHorario(profesionalId: string, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirAdmin();
+  const { user } = await requerirAdmin();
   const datos = esquemaHorario.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const tramos = [];
@@ -191,6 +213,7 @@ export async function guardarHorario(profesionalId: string, _: Estado, fd: FormD
     prisma.horarioLaboral.deleteMany({ where: { profesionalId } }),
     prisma.horarioLaboral.createMany({ data: tramos.map((t) => ({ ...t, profesionalId })) }),
   ]);
+  await anotar(user, "EDITAR", "configuracion", profesionalId, "horario semanal");
   revalidatePath("/", "layout");
   return { ok: "Horario guardado. Las citas que ya existían no cambian." };
 }
@@ -201,7 +224,7 @@ const emailRepetido = (e: unknown) => e instanceof Prisma.PrismaClientKnownReque
 
 /** El usuario nuevo no tiene contraseña: recibe un enlace para elegirla. */
 export async function crearUsuario(_: Estado, fd: FormData): Promise<Estado> {
-  await requerirAdmin();
+  const { user } = await requerirAdmin();
   const valores = Object.fromEntries([...fd].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const datos = esquemaUsuario.safeParse(valores);
   if (!datos.success) return { error: primerError(datos.error), valores };
@@ -210,6 +233,7 @@ export async function crearUsuario(_: Estado, fd: FormData): Promise<Estado> {
     // Hash de un valor aleatorio que nadie conoce: hasta que use el enlace, no hay contraseña que acierte.
     const usuario = await prisma.usuario.create({ data: { ...resto, profesionalId: profesionalId || null, passwordHash: await hash(nuevoToken(), 10) } });
     const enviado = await enviarAcceso(usuario, true);
+    await anotar(user, "CREAR", "usuario", usuario.id, `${usuario.email}, rol ${usuario.rol}`);
     refrescar();
     return enviado
       ? { ok: `Usuario creado. Le hemos enviado a ${usuario.email} el enlace para elegir contraseña (vale 3 días).` }
@@ -221,7 +245,7 @@ export async function crearUsuario(_: Estado, fd: FormData): Promise<Estado> {
 }
 
 export async function guardarUsuario(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  await requerirAdmin();
+  const { user } = await requerirAdmin();
   const datos = esquemaUsuario.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const usuario = await prisma.usuario.findUnique({ where: { id } });
@@ -235,13 +259,18 @@ export async function guardarUsuario(id: string, _: Estado, fd: FormData): Promi
     if (emailRepetido(e)) return { error: "Ya hay un usuario con ese email." };
     throw e;
   }
+  await anotar(user, "EDITAR", "usuario", id, usuario.rol === datos.data.rol ? datos.data.email : `${datos.data.email}, rol ${usuario.rol} → ${datos.data.rol}`);
   refrescar();
   return { ok: "Guardado." };
 }
 
 export async function borrarUsuario(id: string) {
-  const sesion = await requerirAdmin();
+  const { user } = await requerirAdmin();
   // Ni a uno mismo (siempre queda al menos un administrador) ni a los de la demo.
-  if (id !== sesion.user.id) await prisma.usuario.deleteMany({ where: { id, demo: false } });
+  const usuario = id === user.id ? null : await prisma.usuario.findFirst({ where: { id, demo: false } });
+  if (usuario) {
+    await prisma.usuario.delete({ where: { id } });
+    await anotar(user, "BORRAR", "usuario", id, usuario.email);
+  }
   refrescar();
 }

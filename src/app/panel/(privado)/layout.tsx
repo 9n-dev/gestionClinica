@@ -15,6 +15,7 @@ const ENLACES = [
   { href: "/panel/emails", texto: "Emails enviados" },
   { href: "/panel/configuracion", texto: "Configuración", admin: true },
   { href: "/panel/usuarios", texto: "Usuarios", admin: true },
+  { href: "/panel/actividad", texto: "Actividad", admin: true },
 ];
 
 export default async function LayoutPanel({ children }: { children: React.ReactNode }) {

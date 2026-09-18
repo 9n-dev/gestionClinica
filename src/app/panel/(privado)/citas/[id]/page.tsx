@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FormularioAuto } from "@/components/FormularioAuto";
+import { anotar } from "@/lib/auditoria";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
@@ -15,11 +16,12 @@ export const metadata: Metadata = { title: "Detalle de cita" };
 type Params = { creada?: string; movida?: string; dia?: string; profesional?: string };
 
 export default async function DetalleCita({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Params> }) {
-  await requerirSesion();
+  const { user } = await requerirSesion();
   const { id } = await params;
   const sp = await searchParams;
   const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } } } });
   if (!cita) notFound();
+  await anotar(user, "VER", "cita", id);
   const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
   const estado = ESTADOS[cita.estado];
   const aviso = sp.creada ? "Cita creada." : sp.movida ? "Cita movida." : null;

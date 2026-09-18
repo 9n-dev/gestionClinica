@@ -3,6 +3,7 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { anotar } from "./auditoria";
 import { prisma } from "./db";
 import { agotado, ipDe, permitido } from "./limite";
 import { esquemaLogin } from "./validacion";
@@ -31,6 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await permitido(clave, LOGIN.max, LOGIN.minutos); // solo cuentan los fallos
           return null;
         }
+        await anotar(usuario, "ENTRAR", "sesion");
         return { id: usuario.id, email: usuario.email, name: usuario.nombre };
       },
     }),

@@ -10,6 +10,7 @@ const { prisma } = await import("./db");
 const { migrar } = await import("./migraciones");
 const { sembrar } = await import("./seed-datos");
 const { crearCita, moverCita, cancelarCita } = await import("./reservas");
+const { suprimirPaciente } = await import("./pacientes");
 
 // Próximo lunes y martes, siempre en el futuro y con horario completo.
 const LUNES = (() => { let d = sumarDias(hoy(), 1); while (new Date(`${d}T12:00:00Z`).getUTCDay() !== 1) d = sumarDias(d, 1); return d; })();
@@ -107,5 +108,32 @@ describe("paciente de la cita", () => {
     expect(b.nombre).toBe("José Pérez Núñez"); // se queda el nombre de la primera vez
     expect(b.email).toBe("jose@ejemplo.com"); // y el email más reciente
     expect(hijo.id).not.toBe(a.id);
+  });
+});
+
+describe("derecho de supresión", () => {
+  it("vacía los datos del paciente, de sus citas y sus emails; las citas se quedan y quien vuelva a reservar es un paciente nuevo", async () => {
+    const datos = { nombre: "Marta Olvido Ruiz", telefono: "633333333", email: "marta@correo.test", servicio: "consulta-general", profesional: "marcos-ortiz", dia: sumarDias(LUNES, 3) };
+    const r = await crearCita({ ...datos, hora: "09:00" }, true);
+    if (!r.ok) throw new Error(r.error);
+    const { pacienteId } = await prisma.cita.findUniqueOrThrow({ where: { id: r.id } });
+
+    // Con una cita pendiente no se puede: primero hay que cancelarla
+    expect((await suprimirPaciente(pacienteId)).ok).toBe(false);
+    await cancelarCita({ id: r.id });
+    expect(await prisma.emailEnviado.count({ where: { citaId: r.id } })).toBeGreaterThan(0);
+    expect((await suprimirPaciente(pacienteId)).ok).toBe(true);
+
+    const todo = JSON.stringify([
+      await prisma.paciente.findUniqueOrThrow({ where: { id: pacienteId } }),
+      await prisma.cita.findUniqueOrThrow({ where: { id: r.id } }),
+      await prisma.emailEnviado.findMany({ where: { OR: [{ citaId: r.id }, { para: datos.email }] } }),
+    ]);
+    for (const dato of ["Marta", "Olvido", "633333333", "marta@correo.test"]) expect(todo).not.toContain(dato);
+    expect((await prisma.paciente.findUniqueOrThrow({ where: { id: pacienteId } })).eliminadoAt).not.toBeNull();
+
+    const otra = await crearCita({ ...datos, hora: "10:00" }, true);
+    if (!otra.ok) throw new Error(otra.error);
+    expect((await prisma.cita.findUniqueOrThrow({ where: { id: otra.id } })).pacienteId).not.toBe(pacienteId);
   });
 });

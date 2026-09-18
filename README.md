@@ -26,6 +26,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
   - **Usuarios y roles** (solo administración): alta, cambio de rol y baja. Nadie escribe la contraseña de otro: el usuario nuevo recibe un enlace de un solo uso para elegirla, y el mismo mecanismo sirve para «he olvidado mi contraseña».
   - Registro de todos los emails enviados.
+- **Protección de datos**: registro de actividad (quién abrió o cambió qué; abrir una ficha también cuenta), descarga de los datos de un paciente en JSON (derecho de acceso) y eliminación de sus datos (derecho de supresión).
 - **Límite de intentos** en el login, en la reserva web y en la recuperación de contraseña.
 - **Modo demo**: `npm run seed` y un cron diario que reinicia los datos.
 
@@ -86,6 +87,7 @@ src/lib/pacientes.ts          normalización del nombre (identidad y búsqueda)
 src/lib/auth.ts               Auth.js, usuario de la petición y roles
 src/lib/acceso.ts             enlaces de un solo uso para poner contraseña
 src/lib/limite.ts             límite de intentos
+src/lib/auditoria.ts          registro de actividad
 src/lib/migraciones.ts        ejecutor de migraciones (build, seed y CLI)
 src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_DEMO
 src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
@@ -114,6 +116,13 @@ Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (adem
 Las contraseñas solo las escribe su dueño. Dar de alta a alguien le envía un enlace de un solo uso (3 días); «he olvidado mi contraseña» envía otro (1 hora) y responde lo mismo exista o no el email. En la base de datos solo está el hash SHA-256 del token, y cuando el email sale de verdad por Resend el enlace se tacha del registro de `/panel/emails`. Sin Resend se deja, porque ese registro es la única forma de leer el email: así se puede probar en la demo.
 
 En la demo, los cuatro usuarios sembrados llevan `demo = true` y no se pueden cambiar, borrar ni recuperar, para que un visitante no deje fuera a los demás. Los usuarios que cree un visitante sí, y desaparecen con el reinicio nocturno.
+
+### Protección de datos
+
+Una agenda de podología con notas es dato de salud, así que también se apunta quién **mira**, no solo quién cambia. `src/lib/auditoria.ts` anota cada entrada al panel, cada ficha o cita abierta (una vez cada 15 minutos por persona y ficha, para que guardar unas notas no cuente como otro acceso), cada descarga y cada cambio. Solo administración ve el registro, en «Actividad», y desde cada ficha se llega a lo suyo. El registro nunca guarda datos del paciente, solo ids, fechas y nombres de campos: así sobrevive a una supresión sin conservar lo que se pidió borrar. Un test de extremo a extremo comprueba, de paso, que recorrer la lista de pacientes no se apunta como haber abierto sus fichas.
+
+- **Acceso y portabilidad**: «Descargar sus datos» genera un JSON con la ficha, todas sus citas y los emails que se le han enviado.
+- **Supresión**: solo administración, y solo si no tiene citas pendientes. **Anonimiza en vez de borrar**: se van nombre, teléfono, email, notas y los emails guardados de sus citas (llevan su nombre en el texto); las citas pasadas se quedan como «Paciente eliminado» para que la agenda y los números de meses anteriores cuadren. Si vuelve a reservar, es un paciente nuevo.
 
 ### Límite de intentos
 
@@ -178,9 +187,9 @@ Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de
 
 Lo que esta demo deja fuera a propósito:
 
-- **Protección de datos**: una agenda de podología con notas es dato de salud. Contratos de encargo con los proveedores, alojamiento en la UE, registro de accesos, retención y borrado, y textos legales revisados por la asesoría de cada clínica.
+- **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica. Y de código: una política de retención que elimine sola a los pacientes inactivos tras el plazo que fije la clínica, y purga del propio registro de actividad.
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
-- **Pacientes**: fusión de fichas duplicadas y exportación o borrado de los datos de un paciente.
+- **Pacientes**: fusión de fichas duplicadas, alta sin cita e importación de la cartera que ya tenga la clínica.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.
 - Recordatorios por WhatsApp o SMS, festivos automáticos, citas periódicas, lista de espera, cobros y facturación, monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.
