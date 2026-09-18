@@ -10,7 +10,7 @@ const { prisma } = await import("./db");
 const { migrar } = await import("./migraciones");
 const { sembrar } = await import("./seed-datos");
 const { crearCita, moverCita, cancelarCita } = await import("./reservas");
-const { suprimirPaciente } = await import("./pacientes");
+const { fusionarPacientes, suprimirPaciente } = await import("./pacientes");
 
 // Próximo lunes y martes, siempre en el futuro y con horario completo.
 const LUNES = (() => { let d = sumarDias(hoy(), 1); while (new Date(`${d}T12:00:00Z`).getUTCDay() !== 1) d = sumarDias(d, 1); return d; })();
@@ -175,5 +175,27 @@ describe("lista de espera", () => {
     const inicio = aInstante(sumarDias(LUNES, 14), 600);
     const hueco = { profesionalId: laura.id, inicio, fin: new Date(inicio.getTime() + 45 * 60_000) };
     expect((await candidatosPara(hueco)).map((e) => e.paciente.nombre)).toEqual(["Primera", "Segunda"]);
+  });
+});
+
+describe("fusionar fichas", () => {
+  it("junta las citas de quien reservó con dos nombres desde el mismo móvil, y no deja fusionar a dos desconocidos", async () => {
+    const dia = sumarDias(LUNES, 21);
+    const base = { telefono: "644444444", servicio: "consulta-general", profesional: "marcos-ortiz", dia };
+    const [pepe, jose, otro] = [
+      await crearCita({ ...base, nombre: "Pepe Gómez", email: null, hora: "09:00" }, true),
+      await crearCita({ ...base, nombre: "José Gómez Lara", email: "jose@correo.test", hora: "10:00" }, true),
+      await crearCita({ ...base, telefono: "655555000", nombre: "Otra Persona", email: null, hora: "11:00" }, true),
+    ];
+    if (!pepe.ok || !jose.ok || !otro.ok) throw new Error("no se crearon las citas");
+    const fichaDe = async (citaId: string) => (await prisma.cita.findUniqueOrThrow({ where: { id: citaId } })).pacienteId;
+    const [idPepe, idJose, idOtro] = await Promise.all([pepe.id, jose.id, otro.id].map(fichaDe));
+
+    expect((await fusionarPacientes(idJose, idOtro)).ok).toBe(false);
+    expect(await fusionarPacientes(idJose, idPepe)).toEqual({ ok: true });
+    expect(await prisma.paciente.findUnique({ where: { id: idPepe } })).toBeNull();
+    const ficha = await prisma.paciente.findUniqueOrThrow({ where: { id: idJose }, include: { citas: true } });
+    expect(ficha).toMatchObject({ nombre: "José Gómez Lara", email: "jose@correo.test" });
+    expect(ficha.citas.map((c) => c.id).sort()).toEqual([pepe.id, jose.id].sort());
   });
 });

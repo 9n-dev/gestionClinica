@@ -56,7 +56,7 @@ test("recepción descarga los datos de un paciente; administración los elimina;
   // Y en el registro general: pasar por la lista de pacientes no cuenta como abrir sus fichas
   await page.goto(`/panel/actividad?entidad=paciente&usuario=${DEMO.recepcion}`);
   // La lista tiene 30 pacientes: si enlazarlos contara como abrirlos, aquí habría decenas. Solo están las fichas que de verdad
-  // ha abierto recepción en estos tests (esta y la del test de la agenda táctil).
+  // ha abierto recepción, una a una, en estos tests.
   await expect(page.getByRole("row").filter({ hasText: "Abrió" }).first()).toBeVisible();
-  expect(await page.getByRole("row").filter({ hasText: "Abrió" }).count()).toBeLessThan(5);
+  expect(await page.getByRole("row").filter({ hasText: "Abrió" }).count()).toBeLessThan(20); // otros tests abren alguna ficha más; 30 de golpe sería el fallo
 });

@@ -6,7 +6,9 @@ import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { diaDe, formatoDia, formatoFechaHora } from "@/lib/fechas";
 import { ESTADOS } from "../../estados";
-import { quitarDeEspera } from "../../../acciones";
+import { posiblesDuplicados } from "@/lib/pacientes";
+import { gestionaTodo } from "@/lib/permisos";
+import { fusionarFichas, quitarDeEspera } from "../../../acciones";
 import { FormularioEspera, FormularioPaciente, FormularioSupresion } from "./formulario";
 
 export const metadata: Metadata = { title: "Ficha de paciente" };
@@ -23,6 +25,7 @@ export default async function FichaPaciente({ params }: { params: Promise<{ id: 
     prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, select: { id: true, nombre: true } }),
   ]);
   if (!paciente) notFound();
+  const duplicados = !paciente.eliminadoAt && gestionaTodo(user) ? await posiblesDuplicados(paciente) : [];
   await anotar(user, "VER", "paciente", id);
   const eliminado = !!paciente.eliminadoAt;
 
@@ -53,6 +56,24 @@ export default async function FichaPaciente({ params }: { params: Promise<{ id: 
         <p className="mt-4 rounded-md bg-ambar-claro px-4 py-3">
           Sus datos se eliminaron el {formatoDia(diaDe(paciente.eliminadoAt), { day: "numeric", month: "long", year: "numeric" })} a petición suya (derecho de supresión). Las citas se conservan sin nombre para que la agenda pasada cuadre.
         </p>
+      )}
+
+      {duplicados.length > 0 && (
+        <section aria-labelledby="t-duplicados" className="mt-4 rounded-lg bg-ambar-claro p-5">
+          <h2 id="t-duplicados" className="text-lg font-bold">¿Es la misma persona?</h2>
+          <p className="mt-1">Hay {duplicados.length === 1 ? "otra ficha" : "otras fichas"} con el mismo teléfono o el mismo nombre. Al fusionar, sus citas pasan a esta ficha y la otra desaparece. No se puede deshacer.</p>
+          <ul className="mt-3 space-y-2">
+            {duplicados.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-white p-3">
+                <span><Link href={`/panel/pacientes/${d.id}`} className="enlace font-bold">{d.nombre}</Link> <span className="tabular-nums">{d.telefono}</span> <span className="text-pizarra">· {d._count.citas} {d._count.citas === 1 ? "cita" : "citas"}</span></span>
+                <details>
+                  <summary className="cursor-pointer font-bold">Fusionar en esta ficha</summary>
+                  <form action={fusionarFichas.bind(null, paciente.id, d.id)} className="mt-2"><button className="btn btn-peligro min-h-10 px-3">Sí: es la misma persona que {paciente.nombre}</button></form>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <dl className="mt-6 grid grid-cols-3 gap-4 text-center">

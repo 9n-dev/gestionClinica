@@ -51,3 +51,31 @@ export async function datosDePaciente(id: string) {
     })),
   };
 }
+
+/** Fichas que pueden ser la misma persona: mismo teléfono (reservó como «Pepe» y como «José») o mismo nombre (cambió de móvil). */
+export const posiblesDuplicados = (p: { id: string; telefono: string; nombreNorm: string }) =>
+  prisma.paciente.findMany({
+    where: { id: { not: p.id }, eliminadoAt: null, OR: [{ telefono: p.telefono }, { nombreNorm: p.nombreNorm }] },
+    include: { _count: { select: { citas: true } } },
+    orderBy: { creadoAt: "asc" },
+  });
+
+/**
+ * Junta dos fichas: `destino` se queda con las citas, la lista de espera y el historial de accesos de `origen`, y
+ * con su email y sus notas si le faltaban. `origen` desaparece. Solo entre posibles duplicados, para que un despiste
+ * no mezcle a dos personas que no tienen nada que ver.
+ */
+export async function fusionarPacientes(destinoId: string, origenId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const destino = await prisma.paciente.findUnique({ where: { id: destinoId } });
+  if (!destino || destino.eliminadoAt) return { ok: false, error: "Esa ficha ya no existe." };
+  const origen = (await posiblesDuplicados(destino)).find((p) => p.id === origenId);
+  if (!origen) return { ok: false, error: "Esas dos fichas no comparten ni teléfono ni nombre." };
+  await prisma.$transaction([
+    prisma.cita.updateMany({ where: { pacienteId: origenId }, data: { pacienteId: destinoId } }),
+    prisma.enEspera.updateMany({ where: { pacienteId: origenId }, data: { pacienteId: destinoId } }),
+    prisma.auditoria.updateMany({ where: { entidad: "paciente", entidadId: origenId }, data: { entidadId: destinoId } }),
+    prisma.paciente.update({ where: { id: destinoId }, data: { email: destino.email ?? origen.email, notas: [destino.notas, origen.notas].filter(Boolean).join("\n") || null, creadoAt: origen.creadoAt < destino.creadoAt ? origen.creadoAt : destino.creadoAt } }),
+    prisma.paciente.delete({ where: { id: origenId } }),
+  ]);
+  return { ok: true };
+}

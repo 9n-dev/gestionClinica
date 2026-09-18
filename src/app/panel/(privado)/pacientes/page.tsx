@@ -4,6 +4,7 @@ import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatoFechaHora } from "@/lib/fechas";
 import { normalizarNombre } from "@/lib/pacientes";
+import { FormularioNuevoPaciente } from "./nuevo";
 
 export const metadata: Metadata = { title: "Pacientes" };
 
@@ -26,7 +27,7 @@ export default async function Pacientes({ searchParams }: { searchParams: Promis
   return (
     <>
       <h1 className="text-3xl font-bold">Pacientes</h1>
-      <p className="mt-2 max-w-[70ch] text-pizarra">Se crean solos con la primera cita, por la web o desde el panel. Mismo teléfono y mismo nombre es el mismo paciente.</p>
+      <p className="mt-2 max-w-[70ch] text-pizarra">Se crean solos con la primera cita, por la web o desde el panel; también se pueden dar de alta a mano o importar. Mismo teléfono y mismo nombre es el mismo paciente.</p>
 
       <form method="get" role="search" className="mt-6 flex flex-wrap items-end gap-3">
         <div className="min-w-64 flex-1 sm:max-w-md">
@@ -37,6 +38,11 @@ export default async function Pacientes({ searchParams }: { searchParams: Promis
         {q && <Link href="/panel/pacientes" className="enlace self-center">Ver todos</Link>}
         {user.rol === "ADMIN" && <Link href="/panel/pacientes/importar" className="btn btn-secundario sm:ml-auto">Importar pacientes</Link>}
       </form>
+
+      <details className="mt-4 rounded-lg border border-dashed border-pizarra p-4">
+        <summary className="cursor-pointer font-bold">Nuevo paciente sin cita</summary>
+        <div className="mt-4 max-w-2xl"><FormularioNuevoPaciente /></div>
+      </details>
 
       {pacientes.length ? (
         <div className="mt-6 overflow-x-auto rounded-lg border border-linea bg-white">

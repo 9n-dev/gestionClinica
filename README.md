@@ -122,7 +122,7 @@ SQLite no tiene restricciones de exclusión por rango, así que cada cita activa
 
 ### Pacientes
 
-Un paciente es un teléfono más un nombre normalizado (sin acentos ni mayúsculas), con restricción única en la base de datos. El mismo móvil con otro nombre es otro paciente: es el caso de quien reserva para su hijo. La cita se enlaza a su paciente con `connectOrCreate` dentro de la misma transacción que ocupa las franjas, y conserva además lo que se escribió al reservar. La migración que introdujo la tabla crea los pacientes de las citas que ya existían. No hay fusión de duplicados: si alguien reserva una vez como «Pepe» y otra como «José», son dos fichas.
+Un paciente es un teléfono más un nombre normalizado (sin acentos ni mayúsculas), con restricción única en la base de datos. El mismo móvil con otro nombre es otro paciente: es el caso de quien reserva para su hijo. La cita se enlaza a su paciente con `connectOrCreate` dentro de la misma transacción que ocupa las franjas, y conserva además lo que se escribió al reservar. La migración que introdujo la tabla crea los pacientes de las citas que ya existían. Si alguien reserva una vez como «Pepe» y otra como «José» salen dos fichas: la ficha avisa de las que comparten teléfono o nombre y recepción puede fusionarlas (las citas, la lista de espera y el historial de accesos pasan a la que se queda). Solo se fusiona entre esos posibles duplicados, para que un despiste no mezcle a dos desconocidos. También hay alta a mano, sin cita.
 
 ### Importar pacientes
 
@@ -228,6 +228,5 @@ Lo que esta demo deja fuera a propósito:
 
 - **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Segundo factor** (2FA) para administración.
-- **Pacientes**: fusión de fichas duplicadas y alta sin cita.
 - Oferta automática del hueco liberado al primero de la lista de espera, señal al reservar con Stripe, facturación (mejor integrarse con un programa homologado para Verifactu que construirla), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

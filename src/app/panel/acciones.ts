@@ -12,7 +12,7 @@ import { prisma } from "@/lib/db";
 import { aInstante, diaDe, formatoHora, hoy, minutosAHora, sumarDias } from "@/lib/fechas";
 import { festivosNacionales } from "@/lib/festivos";
 import { decodificar, leerCsv, MAX_FILAS, prepararPacientes, type FilaPaciente } from "@/lib/importar";
-import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
+import { fusionarPacientes, normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
 import { gestionaTodo, puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
@@ -136,6 +136,32 @@ export async function moverArrastrando(id: string, profesionalSlug: string, inic
 }
 
 // ---------- Pacientes ----------
+
+/** Alta sin cita: alguien que llama para apuntarse a la lista de espera, o la ficha que se abre antes de la primera visita. */
+export async function crearPaciente(_: Estado, fd: FormData): Promise<Estado> {
+  const { user } = await requerirSesion();
+  const valores = Object.fromEntries([...fd].filter(([, v]) => typeof v === "string")) as Record<string, string>;
+  const datos = esquemaPaciente.safeParse(valores);
+  if (!datos.success) return { error: primerError(datos.error), valores };
+  let id: string;
+  try {
+    ({ id } = await prisma.paciente.create({ data: { ...datos.data, notas: datos.data.notas || null, nombreNorm: normalizarNombre(datos.data.nombre) } }));
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: "Ya hay un paciente con ese nombre y ese teléfono. Búscalo en la lista.", valores };
+    throw e;
+  }
+  await anotar(user, "CREAR", "paciente", id);
+  refrescar();
+  redirect(`/panel/pacientes/${id}`);
+}
+
+/** Junta en `destinoId` la ficha `origenId`. Recepción y administración: toca citas de todos los profesionales. */
+export async function fusionarFichas(destinoId: string, origenId: string) {
+  const { user } = await requerirSesion();
+  if (!gestionaTodo(user)) return;
+  if ((await fusionarPacientes(destinoId, origenId)).ok) await anotar(user, "EDITAR", "paciente", destinoId, `fusión: absorbe la ficha ${origenId}`);
+  refrescar();
+}
 
 /** Cambia la ficha. Las citas conservan lo que se escribió al reservar. */
 export async function guardarPaciente(id: string, _: Estado, fd: FormData): Promise<Estado> {
