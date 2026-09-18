@@ -229,7 +229,9 @@ export async function guardarServicio(id: string | null, _: Estado, fd: FormData
   if (id) await prisma.servicio.update({ where: { id }, data });
   else {
     const slug = await slugLibre(data.nombre, (slug) => prisma.servicio.findUnique({ where: { slug } }));
-    await prisma.servicio.create({ data: { ...data, slug, orden: await prisma.servicio.count() } });
+    // Un servicio nuevo lo hacen todos hasta que se desmarque en la ficha de alguien: si naciera sin nadie, no se podría reservar.
+    const todos = await prisma.profesional.findMany({ select: { id: true } });
+    await prisma.servicio.create({ data: { ...data, slug, orden: await prisma.servicio.count(), profesionales: { connect: todos } } });
   }
   await anotar(user, id ? "EDITAR" : "CREAR", "configuracion", id, `servicio: ${data.nombre}, ${data.duracionMin} min, ${precio} €`);
   revalidatePath("/", "layout");
@@ -241,10 +243,12 @@ export async function guardarProfesional(id: string | null, _: Estado, fd: FormD
   const { user } = await requerirAdmin();
   const datos = esquemaProfesional.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
-  if (id) await prisma.profesional.update({ where: { id }, data: datos.data });
+  // Las casillas de «servicios que hace». Los ids que no existan, Prisma los rechaza.
+  const servicios = fd.getAll("servicios").filter((v): v is string => typeof v === "string").map((id) => ({ id }));
+  if (id) await prisma.profesional.update({ where: { id }, data: { ...datos.data, servicios: { set: servicios } } });
   else {
     const slug = await slugLibre(datos.data.nombre, (slug) => prisma.profesional.findUnique({ where: { slug } }));
-    await prisma.profesional.create({ data: { ...datos.data, slug, orden: await prisma.profesional.count() } });
+    await prisma.profesional.create({ data: { ...datos.data, slug, orden: await prisma.profesional.count(), servicios: { connect: servicios } } });
   }
   await anotar(user, id ? "EDITAR" : "CREAR", "configuracion", id, `profesional: ${datos.data.nombre}`);
   revalidatePath("/", "layout");

@@ -139,3 +139,21 @@ describe("derecho de supresión", () => {
     expect((await prisma.cita.findUniqueOrThrow({ where: { id: otra.id } })).pacienteId).not.toBe(pacienteId);
   });
 });
+
+describe("servicios por profesional", () => {
+  it("quien no hace un servicio no recibe citas de ese servicio: ni elegido, ni por «cualquiera», ni moviéndole una", async () => {
+    const dia = sumarDias(LUNES, 7);
+    const estudio = { ...paciente, servicio: "estudio-de-la-pisada", dia };
+    await prisma.profesional.update({ where: { slug: "laura-serrano" }, data: { servicios: { disconnect: { slug: "estudio-de-la-pisada" } } } });
+
+    expect((await crearCita({ ...estudio, profesional: "laura-serrano", hora: "09:00" }, true)).ok).toBe(false);
+    // «cualquiera»: dos a la misma hora. El primero va a Marcos; para el segundo solo quedaría Laura, que no lo hace.
+    const a = await crearCita({ ...estudio, profesional: "cualquiera", hora: "10:00" }, true);
+    if (!a.ok) throw new Error(a.error);
+    expect((await citaDe(a.id)).profesional.slug).toBe("marcos-ortiz");
+    expect((await crearCita({ ...estudio, profesional: "cualquiera", hora: "10:00" }, true)).ok).toBe(false);
+    expect((await moverCita(a.id, { profesional: "laura-serrano", dia, hora: "12:00" })).ok).toBe(false);
+    // Lo demás lo sigue haciendo
+    expect((await crearCita({ ...paciente, servicio: "quiropodia", profesional: "laura-serrano", dia, hora: "09:00" }, true)).ok).toBe(true);
+  });
+});

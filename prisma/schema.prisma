@@ -40,32 +40,34 @@ enum CanalEmail {
 }
 
 model Profesional {
-  id       String           @id @default(cuid())
-  slug     String           @unique
-  nombre   String
-  titulo   String
-  bio      String
-  orden    Int              @default(0)
-  activo   Boolean          @default(true)
-  usuarios Usuario[]
-  horarios HorarioLaboral[]
-  citas    Cita[]
-  bloqueos Bloqueo[]
-  franjas  FranjaOcupada[]
+  id        String           @id @default(cuid())
+  slug      String           @unique
+  nombre    String
+  titulo    String
+  bio       String
+  orden     Int              @default(0)
+  activo    Boolean          @default(true)
+  usuarios  Usuario[]
+  horarios  HorarioLaboral[]
+  citas     Cita[]
+  bloqueos  Bloqueo[]
+  franjas   FranjaOcupada[]
+  servicios Servicio[] // los que hace: la reserva solo le ofrece para esos
 
   @@map("profesionales")
 }
 
 model Servicio {
-  id          String  @id @default(cuid())
-  slug        String  @unique
-  nombre      String
-  descripcion String
-  duracionMin Int
-  precioCent  Int
-  orden       Int     @default(0)
-  activo      Boolean @default(true)
-  citas       Cita[]
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  nombre        String
+  descripcion   String
+  duracionMin   Int
+  precioCent    Int
+  orden         Int           @default(0)
+  activo        Boolean       @default(true)
+  citas         Cita[]
+  profesionales Profesional[]
 
   @@map("servicios")
 }

@@ -16,14 +16,15 @@ export const primerInstanteReservable = () => new Date(Date.now() + ANTELACION_M
 export const ultimoDiaReservable = () => sumarDias(hoy(), ANTELACION_MAX_DIAS);
 
 /**
- * Huecos libres por día para un servicio, de un profesional o de todos ("cualquiera").
+ * Huecos libres por día para un servicio, de un profesional o de todos ("cualquiera"). Solo cuentan los profesionales
+ * que hacen ese servicio: es aquí donde se decide, así que vale igual para la web, el panel, crear y mover.
  * Una sola consulta de citas y bloqueos para todo el rango.
  * - desdePanel: sin antelación mínima ni tope de días (la clínica reserva para hoy mismo)
  * - excluirCitaId: al mover una cita, sus propias franjas no cuentan como ocupadas
  */
-export async function huecosEnRango(p: { desde: Dia; dias: number; duracionMin: number; profesionalSlug?: string; desdePanel?: boolean; excluirCitaId?: string }) {
+export async function huecosEnRango(p: { desde: Dia; dias: number; servicioId: string; duracionMin: number; profesionalSlug?: string; desdePanel?: boolean; excluirCitaId?: string }) {
   const pros = await prisma.profesional.findMany({
-    where: { activo: true, ...(p.profesionalSlug && p.profesionalSlug !== CUALQUIERA ? { slug: p.profesionalSlug } : {}) },
+    where: { activo: true, servicios: { some: { id: p.servicioId } }, ...(p.profesionalSlug && p.profesionalSlug !== CUALQUIERA ? { slug: p.profesionalSlug } : {}) },
     include: { horarios: true },
     orderBy: { orden: "asc" },
   });
@@ -61,8 +62,8 @@ export async function huecosEnRango(p: { desde: Dia; dias: number; duracionMin: 
 }
 
 /** Primer hueco libre de los próximos días (para la portada). */
-export async function proximoHueco(duracionMin: number) {
-  const huecos = await huecosEnRango({ desde: hoy(), dias: 10, duracionMin });
+export async function proximoHueco(servicio: { id: string; duracionMin: number }) {
+  const huecos = await huecosEnRango({ desde: hoy(), dias: 10, servicioId: servicio.id, duracionMin: servicio.duracionMin });
   for (const [dia, hs] of huecos) if (hs.length) return { dia, ...hs[0] };
   return null;
 }
@@ -81,7 +82,7 @@ export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ 
   const inicio = instanteDe(d.dia, d.hora);
 
   // Se recalcula la disponibilidad en el servidor: valida horario, bloqueos, antelación y rejilla de una vez.
-  const hueco = (await huecosEnRango({ desde: d.dia, dias: 1, duracionMin: servicio.duracionMin, profesionalSlug: d.profesional, desdePanel }))
+  const hueco = (await huecosEnRango({ desde: d.dia, dias: 1, servicioId: servicio.id, duracionMin: servicio.duracionMin, profesionalSlug: d.profesional, desdePanel }))
     .get(d.dia)
     ?.find((x) => x.inicio.getTime() === inicio.getTime());
   if (!hueco) return { ok: false, error: "Ese hueco acaba de ocuparse. Elige otra hora, por favor." };
@@ -152,10 +153,10 @@ export async function moverCita(id: string, destino: { profesional: string; dia:
 
   const inicio = instanteDe(destino.dia, destino.hora);
   if (inicio.getTime() === cita.inicio.getTime() && pro.id === cita.profesionalId) return { ok: true };
-  const hueco = (await huecosEnRango({ desde: destino.dia, dias: 1, duracionMin: cita.servicio.duracionMin, profesionalSlug: pro.slug, desdePanel: true, excluirCitaId: id }))
+  const hueco = (await huecosEnRango({ desde: destino.dia, dias: 1, servicioId: cita.servicioId, duracionMin: cita.servicio.duracionMin, profesionalSlug: pro.slug, desdePanel: true, excluirCitaId: id }))
     .get(destino.dia)
     ?.find((x) => x.inicio.getTime() === inicio.getTime());
-  if (!hueco) return { ok: false, error: "Ese hueco no está libre (fuera de horario, bloqueado u ocupado)." };
+  if (!hueco) return { ok: false, error: "Ese hueco no está libre (fuera de horario, bloqueado u ocupado) o ese profesional no hace este servicio." };
 
   try {
     await prisma.$transaction([

@@ -64,6 +64,25 @@ test("de la base de datos vacía a la primera cita reservable, sin rastro de la 
   await expect(pie.getByText("Lunes a viernes")).toBeVisible();
   await expect(pie.getByText("9:00 – 14:00")).toBeVisible();
 
+  // 4b. Un segundo servicio que ella no hace: en la reserva pública nadie lo ofrece con ella
+  await page.goto("/panel/configuracion");
+  await page.getByText("Añadir un servicio").click();
+  await altaServicio.getByLabel("Nombre").fill("Estudio de la pisada");
+  await altaServicio.getByLabel("Descripción").fill("Análisis biomecánico.");
+  await altaServicio.getByLabel("Minutos").fill("60");
+  await altaServicio.getByLabel("Precio").fill("80");
+  await altaServicio.getByRole("button", { name: "Añadir servicio" }).click();
+  await expect(altaServicio.getByRole("status")).toContainText("Servicio creado");
+  const fichaAna = page.locator("form").filter({ has: page.locator('input[value="Dra. Ana Jefa"]') });
+  await fichaAna.getByLabel("Estudio de la pisada").uncheck();
+  await fichaAna.getByRole("button", { name: "Guardar" }).click();
+  await expect(fichaAna.getByRole("status")).toContainText("Guardado");
+  await page.goto("/reservar?servicio=estudio-de-la-pisada");
+  await expect(page.getByRole("heading", { name: "¿Con quién?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Ana Jefa/ })).toHaveCount(0);
+  await page.goto("/reservar?servicio=quiropodia");
+  await expect(page.getByRole("link", { name: /Ana Jefa/ })).toBeVisible();
+
   // 5. El cron que reinicia la demo aquí no existe, ni con el secreto bueno: borraría la clínica entera
   const reinicio = await request.get("/api/cron/reset-demo", { headers: { authorization: `Bearer ${CRON_SECRET}` } });
   expect(reinicio.status()).toBe(404);

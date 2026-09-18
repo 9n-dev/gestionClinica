@@ -20,10 +20,11 @@ export default async function Reservar({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const [servicios, profesionales] = await Promise.all([
     prisma.servicio.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
-    prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
+    prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, include: { servicios: { select: { id: true } } } }),
   ]);
   const servicio = servicios.find((s) => s.slug === sp.servicio);
-  const profesional = profesionales.find((p) => p.slug === sp.profesional);
+  const losQueLoHacen = profesionales.filter((p) => !servicio || p.servicios.some((s) => s.id === servicio.id));
+  const profesional = losQueLoHacen.find((p) => p.slug === sp.profesional);
   const slugPro = profesional?.slug ?? (sp.profesional === CUALQUIERA ? CUALQUIERA : undefined);
   const dia = esDia(sp.dia) ? sp.dia : undefined;
   const hora = dia && /^\d{2}:\d{2}$/.test(sp.hora ?? "") ? sp.hora : undefined;
@@ -79,7 +80,7 @@ export default async function Reservar({ searchParams }: { searchParams: Promise
           <>
             <h2 id="t-paso" className="text-3xl font-bold">¿Con quién?</h2>
             <ul className="mt-6 grid gap-4 md:grid-cols-3">
-              {[{ slug: CUALQUIERA, nombre: "Me da igual", titulo: "Te enseñamos todos los huecos libres" }, ...profesionales].map((p) => (
+              {[{ slug: CUALQUIERA, nombre: "Me da igual", titulo: "Te enseñamos todos los huecos libres" }, ...losQueLoHacen].map((p) => (
                 <li key={p.slug}>
                   <Link href={url({ ...sp, profesional: p.slug })} className="block h-full rounded-lg border border-pizarra bg-white p-5 no-underline hover:border-cobalto hover:bg-cielo">
                     <span className="block font-display text-xl font-bold text-tinta">{p.nombre}</span>
@@ -91,7 +92,7 @@ export default async function Reservar({ searchParams }: { searchParams: Promise
           </>
         )}
 
-        {paso === 3 && servicio && slugPro && <PasoCalendario sp={sp} duracionMin={servicio.duracionMin} slugPro={slugPro} dia={dia} />}
+        {paso === 3 && servicio && slugPro && <PasoCalendario sp={sp} servicio={servicio} slugPro={slugPro} dia={dia} />}
 
         {paso === 4 && servicio && slugPro && dia && hora && (
           <>
@@ -105,13 +106,13 @@ export default async function Reservar({ searchParams }: { searchParams: Promise
   );
 }
 
-async function PasoCalendario({ sp, duracionMin, slugPro, dia }: { sp: Params; duracionMin: number; slugPro: string; dia?: string }) {
+async function PasoCalendario({ sp, servicio, slugPro, dia }: { sp: Params; servicio: { id: string; duracionMin: number }; slugPro: string; dia?: string }) {
   const primero = hoy();
   const ultimo = ultimoDiaReservable();
   let semana = esDia(sp.semana) ? sp.semana : dia ?? primero;
   if (semana < primero || semana > ultimo) semana = primero;
 
-  const huecos = await huecosEnRango({ desde: semana, dias: 7, duracionMin, profesionalSlug: slugPro });
+  const huecos = await huecosEnRango({ desde: semana, dias: 7, servicioId: servicio.id, duracionMin: servicio.duracionMin, profesionalSlug: slugPro });
   const dias = [...huecos.keys()];
   const seleccionado = dia && huecos.get(dia)?.length ? dia : dias.find((d) => huecos.get(d)!.length);
   const horas = seleccionado ? huecos.get(seleccionado)! : [];

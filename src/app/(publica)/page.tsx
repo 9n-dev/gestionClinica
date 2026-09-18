@@ -13,7 +13,7 @@ export default async function Inicio() {
     prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
   ]);
   const consulta = servicios[0];
-  const hueco = consulta ? await proximoHueco(consulta.duracionMin) : null;
+  const hueco = consulta ? await proximoHueco(consulta) : null;
   const cuando = hueco && (hueco.dia === hoy() ? "hoy" : hueco.dia === sumarDias(hoy(), 1) ? "mañana" : formatoFechaLarga(hueco.inicio));
 
   return (

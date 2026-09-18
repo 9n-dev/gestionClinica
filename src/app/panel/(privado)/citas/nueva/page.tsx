@@ -23,7 +23,7 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
   const servicio = servicios.find((s) => s.slug === sp.servicio) ?? servicios[0];
   const dia = esDia(sp.dia) ? sp.dia : hoy();
 
-  const huecos = profesional && servicio ? (await huecosEnRango({ desde: dia, dias: 1, duracionMin: servicio.duracionMin, profesionalSlug: profesional.slug, desdePanel: true })).get(dia) ?? [] : [];
+  const huecos = profesional && servicio ? (await huecosEnRango({ desde: dia, dias: 1, servicioId: servicio.id, duracionMin: servicio.duracionMin, profesionalSlug: profesional.slug, desdePanel: true })).get(dia) ?? [] : [];
   const horas = huecos.map((h) => formatoHora(h.inicio));
 
   return (

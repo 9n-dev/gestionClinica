@@ -34,7 +34,7 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
     const profesionales = await prisma.profesional.findMany({ where: { activo: true, ...(user.rol === "ADMIN" || !user.profesionalId ? {} : { id: user.profesionalId }) }, orderBy: { orden: "asc" }, select: { slug: true, nombre: true } });
     const profesional = profesionales.find((p) => p.slug === sp.profesional)?.slug ?? cita.profesional.slug;
     const dia = esDia(sp.dia) ? sp.dia : diaDe(cita.inicio);
-    const huecos = (await huecosEnRango({ desde: dia, dias: 1, duracionMin: cita.servicio.duracionMin, profesionalSlug: profesional, desdePanel: true, excluirCitaId: id })).get(dia) ?? [];
+    const huecos = (await huecosEnRango({ desde: dia, dias: 1, servicioId: cita.servicioId, duracionMin: cita.servicio.duracionMin, profesionalSlug: profesional, desdePanel: true, excluirCitaId: id })).get(dia) ?? [];
     mover = { profesionales, profesional, dia, horas: huecos.map((h) => formatoHora(h.inicio)) };
   }
 

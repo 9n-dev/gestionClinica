@@ -171,7 +171,7 @@ Todo se guarda en UTC y se calcula y muestra en `Europe/Madrid`, porque los serv
 
 ### Reglas de reserva
 
-Huecos cada 15 minutos, con un mínimo de 2 horas de antelación y un máximo de 60 días (constantes en `src/lib/clinica.ts`). Máximo 3 citas pendientes por email. Los dos profesionales hacen todos los servicios.
+Huecos cada 15 minutos, con un mínimo de 2 horas de antelación y un máximo de 60 días (constantes en `src/lib/clinica.ts`). Máximo 3 citas pendientes por email. Cada profesional tiene marcados los servicios que hace (en la demo, los dos hacen todos): la reserva solo le ofrece para esos, tanto si se le elige como con «me da igual», y el filtro está en el mismo sitio donde se calculan los huecos, así que vale igual para la web, el panel, crear y mover.
 
 ## Despliegue en Vercel
 

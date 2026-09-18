@@ -44,12 +44,12 @@ export function FormularioServicio({ s }: { s?: Servicio }) {
   );
 }
 
-type Profesional = { id: string; nombre: string; titulo: string; bio: string; activo: boolean; horarios: { diaSemana: number; minInicio: number; minFin: number }[] };
+type Profesional = { id: string; nombre: string; titulo: string; bio: string; activo: boolean; servicios: { id: string }[]; horarios: { diaSemana: number; minInicio: number; minFin: number }[] };
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const hhmm = (min?: number) => (min === undefined ? "" : minutosAHora(min).padStart(5, "0"));
 
 /** Sin `p`, alta de un profesional nuevo. */
-export function FormularioProfesional({ p }: { p?: Omit<Profesional, "horarios"> }) {
+export function FormularioProfesional({ p, servicios }: { p?: Omit<Profesional, "horarios">; servicios: { id: string; nombre: string }[] }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarProfesional.bind(null, p?.id ?? null), {});
   const id = (c: string) => `${c}-${p?.id ?? "nuevo-profesional"}`;
   return (
@@ -66,6 +66,18 @@ export function FormularioProfesional({ p }: { p?: Omit<Profesional, "horarios">
         <label htmlFor={id("bio")} className="etiqueta">Presentación (página de equipo)</label>
         <textarea id={id("bio")} name="bio" defaultValue={p?.bio} required rows={4} maxLength={1000} className="campo" />
       </div>
+      <fieldset>
+        <legend className="etiqueta">Servicios que hace</legend>
+        <div className="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+          {servicios.map((s) => (
+            <label key={s.id} className="flex items-center gap-2">
+              <input name="servicios" value={s.id} type="checkbox" defaultChecked={p ? p.servicios.some((x) => x.id === s.id) : true} className="size-5 accent-cobalto" />
+              {s.nombre}
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-base text-pizarra">En la reserva solo se le ofrece para estos.</p>
+      </fieldset>
       <div className="flex items-center gap-2">
         <input id={id("activo")} name="activo" type="checkbox" defaultChecked={p?.activo ?? true} className="size-5 accent-cobalto" />
         <label htmlFor={id("activo")}>Activo: aparece en la web y admite citas</label>

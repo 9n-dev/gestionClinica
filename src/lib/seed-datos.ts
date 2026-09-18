@@ -77,7 +77,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
       { diaSemana, minInicio: 16 * 60, minFin: 20 * 60 },
     ]);
     if (sabados) tramos.push({ diaSemana: 6, minInicio: 9 * 60, minFin: 13 * 60 });
-    const pro = await prisma.profesional.create({ data: { ...p, orden, horarios: { create: tramos } } });
+    const pro = await prisma.profesional.create({ data: { ...p, orden, horarios: { create: tramos }, servicios: { connect: servicios.map((s) => ({ id: s.id })) } } });
     // Cada profesional tiene su usuario (misma contraseña que el demo); su agenda se abre filtrada.
     await prisma.usuario.create({ data: { email: `${p.slug.split("-")[0]}@podologiaserrano.es`, nombre: p.nombre, passwordHash, demo: true, profesionalId: pro.id } });
     pros.push({ ...pro, tramos, ocupados: [] as Intervalo[] });

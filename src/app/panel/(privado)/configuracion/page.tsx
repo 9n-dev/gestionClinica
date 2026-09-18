@@ -9,7 +9,7 @@ export default async function Configuracion() {
   await requerirAdmin();
   const [servicios, profesionales] = await Promise.all([
     prisma.servicio.findMany({ orderBy: { orden: "asc" } }),
-    prisma.profesional.findMany({ orderBy: { orden: "asc" }, include: { horarios: true } }),
+    prisma.profesional.findMany({ orderBy: { orden: "asc" }, include: { horarios: true, servicios: { select: { id: true } } } }),
   ]);
   return (
     <div className="max-w-4xl">
@@ -31,7 +31,7 @@ export default async function Configuracion() {
         <section key={p.id} aria-labelledby={`t-${p.id}`} className="mt-10">
           <h2 id={`t-${p.id}`} className="text-2xl font-bold">{p.nombre}</h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <FormularioProfesional p={p} />
+            <FormularioProfesional p={p} servicios={servicios} />
             <div>
               <h3 className="mb-2 text-lg font-bold">Horario semanal</h3>
               <FormularioHorario p={p} />
@@ -43,7 +43,7 @@ export default async function Configuracion() {
       <section aria-labelledby="t-nuevo-pro" className="mt-10">
         <details className="rounded-lg border border-dashed border-pizarra p-4">
           <summary id="t-nuevo-pro" className="cursor-pointer font-bold">Añadir un profesional</summary>
-          <div className="mt-4 max-w-xl"><FormularioProfesional /></div>
+          <div className="mt-4 max-w-xl"><FormularioProfesional servicios={servicios} /></div>
         </details>
       </section>
     </div>
