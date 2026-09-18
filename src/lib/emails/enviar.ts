@@ -47,6 +47,13 @@ export async function emailsCitaNueva(c: CitaCompleta) {
   await enviarEmail({ tipo: "AVISO_CLINICA", para: clinica(), citaId: c.id, ...plantillas.avisoClinica(c) });
 }
 
+/** Citas periódicas creadas de una vez: un email al paciente y otro a la clínica, en lugar de uno por cita. */
+export async function emailsSerie(citas: CitaCompleta[]) {
+  const c = citas[0];
+  if (c.pacienteEmail) await enviarEmail({ tipo: "CONFIRMACION_PACIENTE", para: c.pacienteEmail, citaId: c.id, ...plantillas.serie(citas, false) });
+  await enviarEmail({ tipo: "AVISO_CLINICA", para: clinica(), citaId: c.id, ...plantillas.serie(citas, true) });
+}
+
 export async function emailsCitaCancelada(c: CitaCompleta & { profesionalId: string; fin: Date }, avisarPaciente: boolean) {
   if (avisarPaciente && c.pacienteEmail) await enviarEmail({ tipo: "CANCELACION", para: c.pacienteEmail, citaId: c.id, ...plantillas.cancelacionPaciente(c) });
   await enviarEmail({ tipo: "CANCELACION", para: clinica(), citaId: c.id, ...plantillas.cancelacionClinica(c, (await candidatosPara(c)).length) });

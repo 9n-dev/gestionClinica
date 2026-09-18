@@ -68,6 +68,22 @@ ${boton(url, invitacion ? "Elegir mi contraseña" : "Cambiar mi contraseña")}
     html: marco("Tu cita está confirmada", `<p>Hola, ${nombrePila(c)}. Te esperamos en la clínica:</p>${ficha(c)}
 <p>Si no puedes venir, cancela la cita desde este enlace para que otra persona aproveche el hueco.</p>${boton(urlCita(c.tokenCancelacion), "Ver o cancelar mi cita")}`),
   }),
+  /** Una serie de citas periódicas en un solo email: todas las fechas, cada una con su enlace para verla o cancelarla. */
+  serie: (citas: CitaCompleta[], paraLaClinica: boolean) => {
+    const c = citas[0];
+    const filas = citas
+      .map((x) => `<tr><td style="padding:6px 12px 6px 0;font-weight:bold">${formatoFechaLarga(x.inicio)}, ${formatoHora(x.inicio)}</td><td style="padding:6px 0">${paraLaClinica ? `<a href="${URL_BASE()}/panel/citas/${x.id}">Abrir</a>` : `<a href="${urlCita(x.tokenCancelacion)}">Ver o cancelar</a>`}</td></tr>`)
+      .join("");
+    return {
+      asunto: paraLaClinica ? `Serie de ${citas.length} citas: ${c.pacienteNombre}` : `Tus ${citas.length} citas están confirmadas`,
+      html: marco(
+        paraLaClinica ? "Serie de citas creada desde el panel" : `Tus ${citas.length} citas están confirmadas`,
+        `<p>${paraLaClinica ? `${esc(c.pacienteNombre)} (${esc(c.pacienteTelefono)})` : `Hola, ${nombrePila(c)}. Te esperamos en la clínica`}: ${esc(c.servicio.nombre)} con ${esc(c.profesional.nombre)}.</p>
+<table style="border-collapse:collapse;margin:16px 0;width:100%">${filas}</table>
+${paraLaClinica ? "" : `<p>Si alguna fecha no te viene bien, cancela solo esa desde su enlace. ${DIRECCION_COMPLETA}.</p>`}`,
+      ),
+    };
+  },
   avisoClinica: (c: CitaCompleta) => ({
     asunto: `Nueva cita online: ${c.pacienteNombre}, ${formatoFechaLarga(c.inicio)} ${formatoHora(c.inicio)}`,
     html: marco("Nueva cita reservada por la web", `${ficha(c, true)}${boton(`${URL_BASE()}/panel/citas/${c.id}`, "Abrir en el panel")}`),

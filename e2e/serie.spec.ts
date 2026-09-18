@@ -26,4 +26,9 @@ test("una cita periódica desde el panel crea toda la serie y avisa de la fecha 
   await expect(page.getByRole("alert").filter({ hasText: "Sin hueco a esa hora" })).toBeVisible();
   await abrirFicha(page, "sergio serie", "Sergio Serie Mora");
   await expect(page.getByRole("region", { name: "Próximas citas" }).getByRole("listitem")).toHaveCount(3);
+
+  // La serie se anuncia en un solo email a la clínica (este paciente no tiene email), no en uno por cita
+  await page.goto("/panel/emails");
+  await expect(page.locator("main details").filter({ hasText: "Sergio Serie Mora" })).toHaveCount(1);
+  await expect(page.getByText("Serie de 3 citas: Sergio Serie Mora")).toBeVisible();
 });

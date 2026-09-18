@@ -75,7 +75,8 @@ const instanteDe = (dia: Dia, hora: string) => {
   return aInstante(dia, h * 60 + m);
 };
 
-export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ ok: true; token: string; id: string } | { ok: false; error: string }> {
+/** `avisar = false`: no envía los emails de cita nueva (las citas de una serie se anuncian juntas, con emailsSerie). */
+export async function crearCita(d: DatosReserva, desdePanel = false, avisar = true): Promise<{ ok: true; token: string; id: string } | { ok: false; error: string }> {
   const servicio = await prisma.servicio.findFirst({ where: { slug: d.servicio, activo: true } });
   if (!servicio) return { ok: false, error: "Ese servicio ya no está disponible." };
 
@@ -131,7 +132,7 @@ export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ 
       });
       // Paciente que ya existía: el email más reciente es el bueno.
       if (d.email) await prisma.paciente.update({ where: { id: cita.pacienteId }, data: { email: d.email } });
-      await emailsCitaNueva(cita);
+      if (avisar) await emailsCitaNueva(cita);
       return { ok: true, token: cita.tokenCancelacion, id: cita.id };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue; // franja ocupada: probar el siguiente

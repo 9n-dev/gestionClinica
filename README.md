@@ -41,7 +41,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
 - **Recordatorio al móvil** por WhatsApp y, si no llega, por SMS (Twilio). Llega también a quien reservó por teléfono y no dio email.
 - **Panel en `/panel`**:
   - Agenda por día y semana, filtrable por profesional. **Arrastra una cita** para cambiarla de hora o de profesional, o en una tablet tócala y toca la hora nueva; pulsa en un hueco libre para crear una.
-  - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional. **Citas periódicas**: la misma cada N semanas; la fecha que no tenga hueco se salta y se avisa.
+  - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional. **Citas periódicas**: la misma cada N semanas; la fecha que no tenga hueco se salta y se avisa, y toda la serie se anuncia en un solo email con un enlace de cancelación por fecha.
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
   - **Importar pacientes** desde un CSV de Excel (solo administración): primero comprueba el fichero y enseña qué entraría y qué filas tienen problemas; al confirmar, no duplica a quien ya existe.

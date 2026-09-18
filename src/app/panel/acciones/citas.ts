@@ -5,6 +5,7 @@ import { z } from "zod";
 import { anotar } from "@/lib/auditoria";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { emailsSerie } from "@/lib/emails/enviar";
 import { diaDe, formatoHora, sumarDias } from "@/lib/fechas";
 import { puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
@@ -51,7 +52,7 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
   if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
   if (!puedeGestionar(user, await idDeProfesional(datos.data.profesional))) return { error: SOLO_LO_TUYO, valores };
   const { repetirCada, veces, ...cita } = datos.data;
-  const r = await crearCita(cita, true);
+  const r = await crearCita(cita, true, !repetirCada); // las de una serie se anuncian juntas, al final
   if (!r.ok) return { error: r.error, valores };
   await anotar(user, "CREAR", "cita", r.id, `${cita.dia} ${cita.hora}`);
   // Si estaba en la lista de espera para este servicio, ya no: tiene su cita.
@@ -59,15 +60,17 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
   await prisma.enEspera.updateMany({ where: { ...creada, atendidoAt: null }, data: { atendidoAt: new Date() } });
 
   // Serie: mismo día de la semana y misma hora. Si una fecha no tiene hueco, se salta y se avisa; no se busca otra hora sola.
-  const serie = { creadas: 0, sinHueco: [] as string[] };
+  const serie = { creadas: 0, sinHueco: [] as string[], ids: [r.id] };
   for (let n = 1; repetirCada && n < veces; n++) {
     const dia = sumarDias(cita.dia, n * repetirCada * 7);
-    const otra = await crearCita({ ...cita, dia }, true);
+    const otra = await crearCita({ ...cita, dia }, true, false);
     if (otra.ok) {
       serie.creadas++;
+      serie.ids.push(otra.id);
       await anotar(user, "CREAR", "cita", otra.id, `${dia} ${cita.hora} (serie)`);
     } else serie.sinHueco.push(dia);
   }
+  if (repetirCada) await emailsSerie(await prisma.cita.findMany({ where: { id: { in: serie.ids } }, orderBy: { inicio: "asc" }, include: { servicio: true, profesional: true } }));
   refrescar();
   redirect(`/panel/citas/${r.id}?creada=1${repetirCada ? `&serie=${serie.creadas}&sinHueco=${serie.sinHueco.join(",")}` : ""}`);
 }
