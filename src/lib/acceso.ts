@@ -36,7 +36,7 @@ export async function ponerPassword(token: string, password: string) {
   // Se gasta el token en la misma escritura; la condición sobre el hash evita que dos peticiones a la vez lo usen dos veces.
   const r = await prisma.usuario.updateMany({
     where: { id: usuario.id, accesoTokenHash: huella(token) },
-    data: { passwordHash: await hash(password, 10), accesoTokenHash: null, accesoExpira: null },
+    data: { passwordHash: await hash(password, 10), accesoTokenHash: null, accesoExpira: null, sesionesDesde: new Date() },
   });
   return r.count === 1;
 }

@@ -3,14 +3,14 @@
 import { useActionState } from "react";
 import { crearBloqueo, type Estado } from "../../acciones";
 
-export function FormularioBloqueo({ profesionales, porDefecto }: { profesionales: { id: string; nombre: string }[]; porDefecto: string }) {
+export function FormularioBloqueo({ profesionales, todaLaClinica, porDefecto }: { profesionales: { id: string; nombre: string }[]; todaLaClinica: boolean; porDefecto: string }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(crearBloqueo, {});
   return (
     <form action={accion} className="grid gap-4 rounded-lg border border-linea bg-white p-6 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <label htmlFor="profesionalId" className="etiqueta">A quién afecta</label>
         <select id="profesionalId" name="profesionalId" className="campo">
-          <option value="">Toda la clínica</option>
+          {todaLaClinica && <option value="">Toda la clínica</option>}
           {profesionales.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
       </div>

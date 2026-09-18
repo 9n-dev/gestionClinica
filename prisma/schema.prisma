@@ -172,6 +172,8 @@ model Usuario {
   accesoExpira    DateTime?
   profesionalId   String? // si está ligado a un profesional, su agenda se abre filtrada
   profesional     Profesional? @relation(fields: [profesionalId], references: [id], onDelete: SetNull)
+  // Las sesiones abiertas antes de esta fecha dejan de valer: se pone al cambiar la contraseña.
+  sesionesDesde   DateTime     @default(now())
   auditoria       Auditoria[]
 
   @@map("usuarios")

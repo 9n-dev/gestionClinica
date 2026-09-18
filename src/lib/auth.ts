@@ -39,8 +39,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     // La sesión solo lleva el id: rol, profesional y demás se leen de la base de datos en cada petición.
+    // entradaAt no cambia cuando Auth.js renueva la cookie (su `iat` sí): es la hora del login de verdad.
+    jwt({ token, user }) {
+      if (user) token.entradaAt = Date.now();
+      return token;
+    },
     session({ session, token }) {
       session.user.id = token.sub!;
+      session.entradaAt = (token.entradaAt as number | undefined) ?? 0;
       return session;
     },
   },
@@ -51,10 +57,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
  * y no cuando caduque la cookie. cache() lo deja en una consulta por petición aunque lo pidan layout, página y acción.
  */
 export const usuarioActual = cache(async () => {
-  const id = (await auth())?.user?.id;
+  const sesion = await auth();
+  const id = sesion?.user?.id;
   if (!id) return null;
   const u = await prisma.usuario.findUnique({ where: { id }, include: { profesional: { select: { slug: true } } } });
-  return u && { id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, demo: u.demo, profesionalSlug: u.profesional?.slug ?? null };
+  // Al cambiar la contraseña se mueve sesionesDesde: las sesiones abiertas antes (otro navegador, un portátil robado) caen.
+  if (!u || sesion.entradaAt < u.sesionesDesde.getTime()) return null;
+  return { id: u.id, email: u.email, nombre: u.nombre, rol: u.rol, demo: u.demo, profesionalId: u.profesionalId, profesionalSlug: u.profesional?.slug ?? null };
 });
 
 /** Se llama en cada página y en cada acción del panel: la sesión se comprueba junto a los datos, no solo en el layout. */

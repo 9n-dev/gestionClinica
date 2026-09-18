@@ -6,6 +6,7 @@ import { anotar } from "@/lib/auditoria";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
+import { puedeGestionar } from "@/lib/permisos";
 import { huecosEnRango } from "@/lib/reservas";
 import { cambiarEstado, cancelarDesdePanel } from "../../../acciones";
 import { ESTADOS } from "../../estados";
@@ -22,14 +23,15 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
   const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } }, mensajes: { orderBy: { enviadoAt: "asc" } } } });
   if (!cita) notFound();
   await anotar(user, "VER", "cita", id);
+  const puede = puedeGestionar(user, cita.profesionalId);
   const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
   const estado = ESTADOS[cita.estado];
   const aviso = sp.creada ? "Cita creada." : sp.movida ? "Cita movida." : null;
 
   // Cambiar hora: día y profesional por parámetro, horas libres calculadas sin contar esta misma cita
   let mover: { profesionales: { slug: string; nombre: string }[]; profesional: string; dia: string; horas: string[] } | null = null;
-  if (cita.estado === "CONFIRMADA") {
-    const profesionales = await prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" }, select: { slug: true, nombre: true } });
+  if (cita.estado === "CONFIRMADA" && puede) {
+    const profesionales = await prisma.profesional.findMany({ where: { activo: true, ...(user.rol === "ADMIN" || !user.profesionalId ? {} : { id: user.profesionalId }) }, orderBy: { orden: "asc" }, select: { slug: true, nombre: true } });
     const profesional = profesionales.find((p) => p.slug === sp.profesional)?.slug ?? cita.profesional.slug;
     const dia = esDia(sp.dia) ? sp.dia : diaDe(cita.inicio);
     const huecos = (await huecosEnRango({ desde: dia, dias: 1, duracionMin: cita.servicio.duracionMin, profesionalSlug: profesional, desdePanel: true, excluirCitaId: id })).get(dia) ?? [];
@@ -64,7 +66,8 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
         {cita.recordatorioEnviadoAt && (<><dt className="text-pizarra">Recordatorio</dt><dd>Enviado el {formatoFechaHora(cita.recordatorioEnviadoAt)}</dd></>)}
       </dl>
 
-      {cita.estado === "CONFIRMADA" && (
+      {!puede && <p className="mt-6 rounded-md bg-cielo px-4 py-3">Esta cita es de {cita.profesional.nombre}: puedes verla, pero no cambiarla.</p>}
+      {cita.estado === "CONFIRMADA" && puede && (
         <div className="mt-6 flex flex-wrap items-start gap-4">
           <form action={cambiarEstado.bind(null, cita.id, "ATENDIDA")}>
             <button className="btn btn-primario">Marcar como atendida</button>
@@ -110,7 +113,7 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
 
       <section aria-labelledby="t-notas" className="mt-8">
         <h2 id="t-notas" className="sr-only">Notas</h2>
-        <FormularioNotas id={cita.id} notas={cita.notas} />
+        {puede ? <FormularioNotas id={cita.id} notas={cita.notas} /> : cita.notas && <p><strong>Notas internas:</strong> {cita.notas}</p>}
       </section>
 
       <section aria-labelledby="t-emails" className="mt-10">

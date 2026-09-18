@@ -3,6 +3,7 @@ import { FormularioAuto } from "@/components/FormularioAuto";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { esDia, formatoDia, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
+import { gestionaTodo } from "@/lib/permisos";
 import { huecosEnRango } from "@/lib/reservas";
 import { FormularioCitaPanel } from "./formulario";
 
@@ -14,7 +15,7 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
   const sesion = await requerirSesion();
   const sp = await searchParams;
   const [profesionales, servicios, paciente] = await Promise.all([
-    prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
+    prisma.profesional.findMany({ where: { activo: true, ...(gestionaTodo(sesion.user) ? {} : { id: sesion.user.profesionalId! }) }, orderBy: { orden: "asc" } }),
     prisma.servicio.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
     sp.paciente ? prisma.paciente.findUnique({ where: { id: sp.paciente } }) : null, // desde la ficha: datos ya rellenos
   ]);

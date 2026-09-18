@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
 import { decodificar, leerCsv, MAX_FILAS, prepararPacientes, type FilaPaciente } from "@/lib/importar";
 import { normalizarNombre, suprimirPaciente } from "@/lib/pacientes";
+import { gestionaTodo, puedeGestionar, SOLO_LO_TUYO } from "@/lib/permisos";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
 import { nuevoToken } from "@/lib/seed-datos";
 import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio, esquemaUsuario } from "@/lib/validacion";
@@ -23,21 +24,31 @@ const refrescar = () => revalidatePath("/panel", "layout");
 
 // ---------- Citas ----------
 
-export async function cancelarDesdePanel(id: string) {
+/** Sesión + permiso sobre esa cita. `user` es null si la cita es de otro profesional y quien pregunta solo gestiona lo suyo. */
+async function sesionParaCita(id: string) {
   const { user } = await requerirSesion();
-  if (await cancelarCita({ id })) await anotar(user, "CANCELAR", "cita", id);
+  const cita = await prisma.cita.findUnique({ where: { id }, select: { profesionalId: true } });
+  return cita && puedeGestionar(user, cita.profesionalId) ? user : null;
+}
+const idDeProfesional = async (slug: string) => (await prisma.profesional.findUnique({ where: { slug }, select: { id: true } }))?.id ?? null;
+
+export async function cancelarDesdePanel(id: string) {
+  const user = await sesionParaCita(id);
+  if (user && (await cancelarCita({ id }))) await anotar(user, "CANCELAR", "cita", id);
   refrescar();
 }
 
 export async function cambiarEstado(id: string, estado: "ATENDIDA" | "NO_PRESENTADA") {
-  const { user } = await requerirSesion();
+  const user = await sesionParaCita(id);
+  if (!user) return;
   const { count } = await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado } });
   if (count) await anotar(user, "ESTADO", "cita", id, estado);
   refrescar();
 }
 
 export async function guardarNotas(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  const { user } = await requerirSesion();
+  const user = await sesionParaCita(id);
+  if (!user) return { error: SOLO_LO_TUYO };
   const datos = esquemaNotas.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   await prisma.cita.update({ where: { id }, data: { notas: datos.data.notas || null } });
@@ -51,6 +62,7 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
   const valores = Object.fromEntries([...fd].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const datos = esquemaCitaPanel.safeParse(valores);
   if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
+  if (!puedeGestionar(user, await idDeProfesional(datos.data.profesional))) return { error: SOLO_LO_TUYO, valores };
   const r = await crearCita(datos.data, true);
   if (!r.ok) return { error: r.error, valores };
   await anotar(user, "CREAR", "cita", r.id, `${datos.data.dia} ${datos.data.hora}`);
@@ -59,9 +71,11 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
 }
 
 export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData): Promise<Estado> {
-  const { user } = await requerirSesion();
+  const user = await sesionParaCita(id);
   const datos = esquemaMover.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
+  // Ni sacar una cita de otro ni meterle una a otro
+  if (!user || !puedeGestionar(user, await idDeProfesional(datos.data.profesional))) return { error: SOLO_LO_TUYO };
   const r = await moverCita(id, datos.data);
   if (!r.ok) return { error: r.error };
   await anotar(user, "MOVER", "cita", id, `→ ${datos.data.dia} ${datos.data.hora} ${datos.data.profesional}`);
@@ -71,9 +85,10 @@ export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData):
 
 /** Arrastrar y soltar en la agenda. Recibe el instante de destino en ISO. */
 export async function moverArrastrando(id: string, profesionalSlug: string, inicioIso: string) {
-  const { user } = await requerirSesion();
+  const user = await sesionParaCita(id);
   const inicio = new Date(inicioIso);
   if (isNaN(inicio.getTime())) return { ok: false as const, error: "Hora no válida" };
+  if (!user || !puedeGestionar(user, await idDeProfesional(profesionalSlug))) return { ok: false as const, error: SOLO_LO_TUYO };
   const r = await moverCita(id, { profesional: profesionalSlug, dia: diaDe(inicio), hora: formatoHora(inicio) });
   if (r.ok) {
     await anotar(user, "MOVER", "cita", id, `→ ${diaDe(inicio)} ${formatoHora(inicio)} ${profesionalSlug}`);
@@ -171,6 +186,7 @@ export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
   const fin = aInstanteLocal(datos.data.fin);
   if (fin <= inicio) return { error: "El final tiene que ser posterior al inicio." };
   const profesionalId = datos.data.profesionalId || null;
+  if (!puedeGestionar(user, profesionalId)) return { error: profesionalId ? SOLO_LO_TUYO : "Un bloqueo de toda la clínica lo pone recepción o administración." };
 
   const bloqueo = await prisma.bloqueo.create({ data: { profesionalId, inicio, fin, motivo: datos.data.motivo } });
   await anotar(user, "CREAR", "bloqueo", bloqueo.id, `${datos.data.inicio} → ${datos.data.fin}`);
@@ -187,7 +203,8 @@ export async function crearBloqueo(_: Estado, fd: FormData): Promise<Estado> {
 
 export async function borrarBloqueo(id: string) {
   const { user } = await requerirSesion();
-  if ((await prisma.bloqueo.deleteMany({ where: { id } })).count) await anotar(user, "BORRAR", "bloqueo", id);
+  const suyos = gestionaTodo(user) ? {} : { profesionalId: user.profesionalId };
+  if ((await prisma.bloqueo.deleteMany({ where: { id, ...suyos } })).count) await anotar(user, "BORRAR", "bloqueo", id);
   refrescar();
 }
 

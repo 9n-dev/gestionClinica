@@ -92,6 +92,7 @@ src/lib/disponibilidad.ts     cálculo de huecos y solapes (función pura, con t
 src/lib/reservas.ts           huecos con datos reales, crear, mover y cancelar citas
 src/lib/pacientes.ts          normalización del nombre (identidad y búsqueda)
 src/lib/auth.ts               Auth.js, usuario de la petición y roles
+src/lib/permisos.ts           quién puede modificar las citas y bloqueos de quién
 src/lib/acceso.ts             enlaces de un solo uso para poner contraseña
 src/lib/limite.ts             límite de intentos
 src/lib/auditoria.ts          registro de actividad
@@ -127,7 +128,9 @@ CSV y no `.xlsx` a propósito: leer Excel exige una librería (la de npm más co
 
 ### Usuarios, roles y contraseñas
 
-Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (además, configuración y usuarios). Ser profesional no es un rol: es estar ligado a un profesional, y solo cambia con qué columna se abre la agenda. La cookie de sesión solo lleva el id; el rol se lee de la base de datos en cada petición (una consulta, con `cache()` de React), así que borrar a alguien o quitarle el rol surte efecto al momento y no cuando caduque la sesión.
+Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (además, configuración, usuarios, estadísticas y actividad). Ser profesional no es un rol: es estar ligado a un profesional. Todos ven la agenda entera, pero quien es de Equipo y está ligado a un profesional solo **modifica** sus propias citas y bloqueos (`src/lib/permisos.ts`); recepción, que no está ligada a nadie, y administración gestionan lo de todos. La regla se comprueba en cada acción del servidor, no solo escondiendo botones. La cookie de sesión solo lleva el id; el rol se lee de la base de datos en cada petición (una consulta, con `cache()` de React), así que borrar a alguien o quitarle el rol surte efecto al momento y no cuando caduque la sesión.
+
+Cambiar la contraseña (desde «Mi cuenta» o por enlace) cierra todas las sesiones de ese usuario: el login guarda su hora en la cookie y `Usuario.sesionesDesde` marca desde cuándo valen. No se usa el `iat` del JWT porque Auth.js lo renueva en cada visita.
 
 Las contraseñas solo las escribe su dueño. Dar de alta a alguien le envía un enlace de un solo uso (3 días); «he olvidado mi contraseña» envía otro (1 hora) y responde lo mismo exista o no el email. En la base de datos solo está el hash SHA-256 del token, y cuando el email sale de verdad por Resend el enlace se tacha del registro de `/panel/emails`. Sin Resend se deja, porque ese registro es la única forma de leer el email: así se puede probar en la demo.
 
@@ -222,8 +225,7 @@ Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de
 Lo que esta demo deja fuera a propósito:
 
 - **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
-- **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
+- **Segundo factor** (2FA) para administración.
 - **Pacientes**: fusión de fichas duplicadas y alta sin cita.
-- **Permisos más finos**: un profesional puede tocar las citas de otro.
 - Festivos automáticos, citas periódicas, lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

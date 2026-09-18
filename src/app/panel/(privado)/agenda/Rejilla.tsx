@@ -10,7 +10,7 @@ import { moverArrastrando } from "../../acciones";
 export type Columna = { dia: string; diaTexto: string; esHoy: boolean; pro: { id: string; slug: string; nombre: string; iniciales: string } };
 export type Tramo = { col: number; desde: number; hasta: number };
 export type BloqueoRejilla = { id: string; col: number; desde: number; hasta: number; motivo: string };
-export type CitaRejilla = { id: string; col: number; desde: number; hasta: number; hora: string; nombre: string; servicio: string; estado: string; tono: string; inicioIso: string };
+export type CitaRejilla = { id: string; col: number; desde: number; hasta: number; hora: string; nombre: string; servicio: string; estado: string; movible: boolean; tono: string; inicioIso: string };
 
 export const DESDE = 9 * 60;
 export const HASTA = 20 * 60;
@@ -157,7 +157,7 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
 
           {/* Citas: las confirmadas se pueden arrastrar */}
           {citas.map((c) => {
-            const movible = c.estado === "CONFIRMADA";
+            const movible = c.movible; // confirmada y de alguien a quien este usuario puede gestionar
             return (
               <Link
                 key={c.id}

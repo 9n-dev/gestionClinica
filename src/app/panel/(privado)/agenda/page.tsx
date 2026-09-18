@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requerirSesion } from "@/lib/auth";
+import { puedeGestionar } from "@/lib/permisos";
 import { prisma } from "@/lib/db";
 import { aInstante, diaDe, diaSemana, esDia, formatoDia, formatoHora, hoy, lunesDe, minutosDe, sumarDias, type Dia } from "@/lib/fechas";
 import { DESDE, HASTA, Rejilla, type BloqueoRejilla, type CitaRejilla, type Tramo } from "./Rejilla";
@@ -69,6 +70,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
       nombre: c.pacienteNombre,
       servicio: c.servicio.nombre,
       estado: c.estado,
+      movible: c.estado === "CONFIRMADA" && puedeGestionar(sesion.user, c.profesionalId),
       tono: c.estado === "CONFIRMADA" ? TONOS[todos.findIndex((p) => p.id === c.profesionalId) % TONOS.length] : "border-pizarra bg-[#eef1f5]",
       inicioIso: c.inicio.toISOString(),
     }))

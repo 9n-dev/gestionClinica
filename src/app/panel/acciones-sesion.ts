@@ -1,10 +1,12 @@
 "use server";
 
 import { headers } from "next/headers";
+import { compare, hash } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { enviarAcceso, ponerPassword } from "@/lib/acceso";
-import { DemasiadosIntentos, signIn, signOut } from "@/lib/auth";
+import { anotar } from "@/lib/auditoria";
+import { DemasiadosIntentos, requerirSesion, signIn, signOut } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ipDe, permitido } from "@/lib/limite";
 import { esquemaEmail, esquemaPasswordNueva } from "@/lib/validacion";
@@ -41,4 +43,20 @@ export async function guardarPassword(token: string, _: EstadoAcceso, fd: FormDa
   if (!datos.success) return { error: datos.error.issues[0].message };
   if (!(await ponerPassword(token, datos.data.password))) return { error: "El enlace ha caducado o ya se ha usado. Pide uno nuevo." };
   redirect("/panel/login?password=1");
+}
+
+/** Cambia la contraseña y cierra todas las sesiones, también esta: se vuelve a entrar con la nueva. */
+export async function cambiarPassword(_: EstadoAcceso, fd: FormData): Promise<EstadoAcceso> {
+  const { user } = await requerirSesion();
+  if (user.demo) return { error: "Los usuarios de la demo tienen la contraseña fija." };
+  const datos = esquemaPasswordNueva.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: datos.error.issues[0].message };
+  // Quien se encuentre una sesión abierta no debe poder probar contraseñas a placer.
+  if (!(await permitido(`password:${user.id}`, 5, 15))) return { error: "Demasiados intentos. Espera un cuarto de hora." };
+  const { passwordHash } = await prisma.usuario.findUniqueOrThrow({ where: { id: user.id } });
+  if (!(await compare(String(fd.get("actual") ?? ""), passwordHash))) return { error: "La contraseña actual no es esa." };
+  await prisma.usuario.update({ where: { id: user.id }, data: { passwordHash: await hash(datos.data.password, 10), sesionesDesde: new Date() } });
+  await anotar(user, "EDITAR", "usuario", user.id, "contraseña");
+  await signOut({ redirectTo: "/panel/login?password=1" });
+  return {};
 }

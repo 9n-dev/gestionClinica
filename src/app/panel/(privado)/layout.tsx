@@ -33,6 +33,7 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
             </ul>
           </nav>
           <Link href="/" className={item}>Ver la web</Link>
+          <Link href="/panel/cuenta" className={item}>Mi cuenta</Link>
           <form action={salir}>
             <button className={`${item} cursor-pointer`}>Salir<span className="sr-only"> ({sesion.user.email})</span></button>
           </form>
