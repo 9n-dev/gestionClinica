@@ -21,7 +21,7 @@ export default function Privacidad() {
       </table>
       <p><strong>En la reserva online no pedimos ningún dato de salud.</strong> No escribas información clínica en el formulario. Tu historia clínica se gestiona en la consulta, fuera de esta web, con las garantías propias de la normativa sanitaria.</p>
       <h2>Cuánto tiempo los guardamos</h2>
-      <p>Los datos de la cita se conservan mientras sea necesario para gestionarla y, después, durante los plazos legales para atender posibles responsabilidades. Las citas canceladas se eliminan pasados 12 meses.</p>
+      <p>Los datos de la cita se conservan mientras sea necesario para gestionarla y, después, durante los plazos legales para atender posibles responsabilidades. Las citas canceladas se eliminan pasados 12 meses, igual que la copia que guardamos de los emails y mensajes que te enviamos.</p>
       <h2>A quién se los comunicamos</h2>
       <p>No cedemos tus datos a terceros salvo obligación legal. Usamos proveedores que actúan como encargados del tratamiento, con contrato conforme al art. 28 RGPD:</p>
       <ul>

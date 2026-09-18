@@ -76,6 +76,7 @@ npm run dev          # http://localhost:3000
 | `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_PLANTILLA` | No | Número de WhatsApp (`+34…`) y Content SID (`HX…`) de la plantilla aprobada. Sin ellos se va directo al SMS |
 | `TWILIO_SMS_FROM` | No | Número o remitente de los SMS. Sin él no hay SMS de reserva |
 | `CRON_SECRET` | Sí | Protege `/api/cron/*`. Vercel Cron lo envía como `Authorization: Bearer …` |
+| `RETENCION_*_MESES` | No | Plazos de conservación (ver `.env.example`). Por defecto 12, 12 y 24 meses; los pacientes inactivos no se tocan si no se define su plazo |
 | `RECORDATORIO_VENTANA_HORAS` | No | Por defecto 36 (cron diario). Con un cron horario, pon 24 |
 
 Los pacientes del seed usan direcciones `@ejemplo.com`: a esas direcciones nunca se envía nada real aunque Resend esté configurado.
@@ -138,6 +139,7 @@ Sin credenciales, los mensajes se escriben en consola y quedan en el panel, como
 Una agenda de podología con notas es dato de salud, así que también se apunta quién **mira**, no solo quién cambia. `src/lib/auditoria.ts` anota cada entrada al panel, cada ficha o cita abierta (una vez cada 15 minutos por persona y ficha, para que guardar unas notas no cuente como otro acceso), cada descarga y cada cambio. Solo administración ve el registro, en «Actividad», y desde cada ficha se llega a lo suyo. El registro nunca guarda datos del paciente, solo ids, fechas y nombres de campos: así sobrevive a una supresión sin conservar lo que se pidió borrar. Un test de extremo a extremo comprueba, de paso, que recorrer la lista de pacientes no se apunta como haber abierto sus fichas.
 
 - **Acceso y portabilidad**: «Descargar sus datos» genera un JSON con la ficha, todas sus citas y los emails que se le han enviado.
+- **Retención**: el cron diario borra lo que cumple su plazo (`src/lib/retencion.ts`): citas canceladas y copia de emails y mensajes a los 12 meses, registro de actividad a los 24. Es lo que promete la política de privacidad. Anonimizar a los pacientes que llevan años sin venir también está, pero **apagado hasta que la clínica fije `RETENCION_PACIENTES_MESES`**: es irreversible y el plazo es una decisión suya, no un valor por defecto. Lo que hace el sistema queda en «Actividad» a nombre de «sistema».
 - **Supresión**: solo administración, y solo si no tiene citas pendientes. **Anonimiza en vez de borrar**: se van nombre, teléfono, email, notas y los emails guardados de sus citas (llevan su nombre en el texto); las citas pasadas se quedan como «Paciente eliminado» para que la agenda y los números de meses anteriores cuadren. Si vuelve a reservar, es un paciente nuevo.
 
 ### Límite de intentos
@@ -169,7 +171,7 @@ Un fichero SQLite no sirve en Vercel (el sistema de ficheros es de solo lectura 
 3. **Importa el repositorio en Vercel** y define las variables de entorno de la tabla de arriba (`APP_URL` con el dominio final).
 4. **Despliega.** `vercel.json` ya declara dos cron jobs:
    - `/api/cron/reset-demo`, cada día a las 03:00 UTC: reinicia los datos de la demo.
-   - `/api/cron/recordatorios`, cada día a las 06:00 UTC: envía los recordatorios de las citas de las próximas 36 horas. Es idempotente (`recordatorioEnviadoAt`), así que puede ejecutarse las veces que haga falta.
+   - `/api/cron/recordatorios`, cada día a las 06:00 UTC: además de la limpieza diaria (límite de intentos y plazos de conservación), envía los recordatorios de las citas de las próximas 36 horas. Es idempotente (`recordatorioEnviadoAt`), así que puede ejecutarse las veces que haga falta.
 
    El plan Hobby de Vercel solo permite crons diarios. En el plan Pro puedes pasar el de recordatorios a horario (`0 * * * *`) con `RECORDATORIO_VENTANA_HORAS=24` para avisar justo 24 horas antes.
 
@@ -203,7 +205,7 @@ Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de
 
 Lo que esta demo deja fuera a propósito:
 
-- **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica. Y de código: una política de retención que elimine sola a los pacientes inactivos tras el plazo que fije la clínica, y purga del propio registro de actividad.
+- **Protección de datos, la parte que no es código**: contratos de encargo con los proveedores (Vercel, Turso, Resend, Twilio), alojamiento en la UE, y textos legales revisados por la asesoría de cada clínica.
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
 - **Pacientes**: fusión de fichas duplicadas, alta sin cita e importación de la cartera que ya tenga la clínica.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.

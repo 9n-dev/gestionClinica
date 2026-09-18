@@ -4,6 +4,7 @@ import { emailRecordatorio } from "@/lib/emails/enviar";
 import { plantillas } from "@/lib/emails/plantillas";
 import { borrarIntentosViejos } from "@/lib/limite";
 import { enviarMensaje } from "@/lib/mensajes";
+import { aplicarRetencion } from "@/lib/retencion";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -33,6 +34,7 @@ export async function GET(req: Request) {
     if (alMovil || porEmail) enviados++;
     else await prisma.cita.update({ where: { id: cita.id }, data: { recordatorioEnviadoAt: null } }); // se reintenta en la próxima pasada
   }
-  await borrarIntentosViejos(); // limpieza diaria de los contadores del límite de intentos
-  return Response.json({ pendientes: citas.length, enviados });
+  // Es el cron diario: de paso, la limpieza. Contadores del límite de intentos y plazos de conservación de datos.
+  await borrarIntentosViejos();
+  return Response.json({ pendientes: citas.length, enviados, retencion: await aplicarRetencion() });
 }

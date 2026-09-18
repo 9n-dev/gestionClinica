@@ -10,15 +10,15 @@ export const ELIMINADO = "Paciente eliminado";
  * y los números de meses anteriores sigan cuadrando. Se van nombre, teléfono, email, notas y los emails y mensajes
  * guardados de sus citas (llevan su nombre o su teléfono).
  */
-export async function suprimirPaciente(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const pendientes = await prisma.cita.count({ where: { pacienteId: id, estado: "CONFIRMADA", inicio: { gt: new Date() } } });
+export async function suprimirPaciente(id: string, ahora = new Date()): Promise<{ ok: true } | { ok: false; error: string }> {
+  const pendientes = await prisma.cita.count({ where: { pacienteId: id, estado: "CONFIRMADA", inicio: { gt: ahora } } });
   if (pendientes) return { ok: false, error: `Tiene ${pendientes === 1 ? "una cita pendiente" : `${pendientes} citas pendientes`}. Cancélalas antes: al borrar sus datos ya no habría a quién avisar.` };
   await prisma.$transaction([
     prisma.emailEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),
     prisma.mensajeEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),
     prisma.cita.updateMany({ where: { pacienteId: id }, data: { pacienteNombre: ELIMINADO, pacienteTelefono: "", pacienteEmail: null, notas: null } }),
     // nombreNorm único por paciente: (telefono, nombreNorm) sigue siendo una clave válida y ninguna reserva nueva coincide con él
-    prisma.paciente.update({ where: { id }, data: { nombre: ELIMINADO, nombreNorm: `eliminado-${id}`, telefono: "", email: null, notas: null, eliminadoAt: new Date() } }),
+    prisma.paciente.update({ where: { id }, data: { nombre: ELIMINADO, nombreNorm: `eliminado-${id}`, telefono: "", email: null, notas: null, eliminadoAt: ahora } }),
   ]);
   return { ok: true };
 }

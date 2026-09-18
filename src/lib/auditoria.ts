@@ -8,7 +8,8 @@ export type Entidad = "paciente" | "cita" | "usuario" | "configuracion" | "bloqu
  * VER se apunta una vez cada 15 minutos por persona y ficha: guardar las notas vuelve a pintar la página
  * y no es un acceso nuevo.
  */
-export async function anotar(quien: { id: string; email: string }, accion: Accion, entidad: Entidad, entidadId: string | null = null, detalle?: string) {
-  if (accion === "VER" && (await prisma.auditoria.findFirst({ where: { usuarioId: quien.id, accion, entidad, entidadId, creadoAt: { gt: new Date(Date.now() - 15 * 60_000) } } }))) return;
+/** `quien.id` = null: lo hizo el sistema (el cron de retención), no una persona. */
+export async function anotar(quien: { id: string | null; email: string }, accion: Accion, entidad: Entidad, entidadId: string | null = null, detalle?: string) {
+  if (accion === "VER" && quien.id && (await prisma.auditoria.findFirst({ where: { usuarioId: quien.id, accion, entidad, entidadId, creadoAt: { gt: new Date(Date.now() - 15 * 60_000) } } }))) return;
   await prisma.auditoria.create({ data: { usuarioId: quien.id, usuarioEmail: quien.email, accion, entidad, entidadId, detalle } });
 }
