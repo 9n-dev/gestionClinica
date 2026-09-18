@@ -19,7 +19,7 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
   const { user } = await requerirSesion();
   const { id } = await params;
   const sp = await searchParams;
-  const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } } } });
+  const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } }, mensajes: { orderBy: { enviadoAt: "asc" } } } });
   if (!cita) notFound();
   await anotar(user, "VER", "cita", id);
   const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
@@ -114,10 +114,11 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
       </section>
 
       <section aria-labelledby="t-emails" className="mt-10">
-        <h2 id="t-emails" className="text-xl font-bold">Emails de esta cita</h2>
-        {cita.emails.length ? (
+        <h2 id="t-emails" className="text-xl font-bold">Emails y mensajes de esta cita</h2>
+        {cita.emails.length + cita.mensajes.length ? (
           <ul className="mt-2 space-y-1">
             {cita.emails.map((e) => <li key={e.id}>{formatoFechaHora(e.enviadoAt)}: {e.asunto} <span className="text-pizarra">(para {e.para})</span></li>)}
+            {cita.mensajes.map((m) => <li key={m.id}>{formatoFechaHora(m.enviadoAt)}: recordatorio al móvil <span className="text-pizarra">({m.canal === "CONSOLA" ? "consola" : m.canal === "SMS" ? "SMS" : "WhatsApp"}{m.error ? `, falló: ${m.error}` : ""})</span></li>)}
           </ul>
         ) : (
           <p className="mt-2 text-pizarra">Todavía no se ha enviado ninguno.</p>

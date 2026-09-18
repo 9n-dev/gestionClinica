@@ -68,6 +68,14 @@ ${boton(url, invitacion ? "Elegir mi contraseña" : "Cambiar mi contraseña")}
     asunto: `Nueva cita online: ${c.pacienteNombre}, ${formatoFechaLarga(c.inicio)} ${formatoHora(c.inicio)}`,
     html: marco("Nueva cita reservada por la web", `${ficha(c, true)}${boton(`${URL_BASE()}/panel/citas/${c.id}`, "Abrir en el panel")}`),
   }),
+  /**
+   * Recordatorio al móvil. `texto` es el SMS; `variables` rellena, en este orden, los huecos de la plantilla de WhatsApp
+   * que la clínica tiene aprobada en Twilio: {{1}} nombre, {{2}} día, {{3}} hora, {{4}} profesional, {{5}} enlace.
+   */
+  recordatorioMovil: (c: CitaCompleta) => ({
+    texto: `${CLINICA.nombre}: te recordamos tu cita del ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)} con ${c.profesional.nombre}. Si no puedes venir, cancélala aquí: ${urlCita(c.tokenCancelacion)}`,
+    variables: [c.pacienteNombre.split(" ")[0], formatoFechaLarga(c.inicio), formatoHora(c.inicio), c.profesional.nombre, urlCita(c.tokenCancelacion)],
+  }),
   recordatorio: (c: CitaCompleta) => ({
     asunto: `Recordatorio: tu cita del ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)}`,
     html: marco("Te recordamos tu cita", `<p>Hola, ${nombrePila(c)}. Esto es un recordatorio de tu próxima cita:</p>${ficha(c)}

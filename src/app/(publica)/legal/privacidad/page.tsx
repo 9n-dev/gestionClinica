@@ -28,6 +28,7 @@ export default function Privacidad() {
         <li>Alojamiento web: Vercel Inc.</li>
         <li>Base de datos: Turso (ChiselStrike Inc.)</li>
         <li>Envío de emails: Resend (Plus Five Five, Inc.)</li>
+        <li>Recordatorios de cita por WhatsApp o SMS: Twilio Inc.</li>
       </ul>
       <p>Estos proveedores pueden tratar datos fuera del Espacio Económico Europeo, al amparo del Marco de Privacidad de Datos UE-EE. UU. o de cláusulas contractuales tipo.</p>
       <h2>Tus derechos</h2>

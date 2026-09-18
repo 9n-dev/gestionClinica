@@ -23,6 +23,12 @@ enum TipoEmail {
   ACCESO // invitación al panel o cambio de contraseña
 }
 
+enum CanalMensaje {
+  WHATSAPP
+  SMS
+  CONSOLA
+}
+
 enum Rol {
   ADMIN // además: configuración y usuarios
   EQUIPO // agenda, citas, pacientes, bloqueos y emails
@@ -96,27 +102,28 @@ model Paciente {
 }
 
 model Cita {
-  id                    String          @id @default(cuid())
+  id                    String           @id @default(cuid())
   servicioId            String
-  servicio              Servicio        @relation(fields: [servicioId], references: [id])
+  servicio              Servicio         @relation(fields: [servicioId], references: [id])
   profesionalId         String
-  profesional           Profesional     @relation(fields: [profesionalId], references: [id])
+  profesional           Profesional      @relation(fields: [profesionalId], references: [id])
   inicio                DateTime // UTC
   fin                   DateTime
-  estado                EstadoCita      @default(CONFIRMADA)
+  estado                EstadoCita       @default(CONFIRMADA)
   pacienteId            String
-  paciente              Paciente        @relation(fields: [pacienteId], references: [id])
+  paciente              Paciente         @relation(fields: [pacienteId], references: [id])
   // Foto de lo que se escribió al reservar; la ficha viva está en Paciente.
   pacienteNombre        String
   pacienteTelefono      String
   pacienteEmail         String? // opcional en citas creadas desde el panel (teléfono, mostrador)
   notas                 String? // notas internas de la clínica, nunca se muestran al paciente
-  tokenCancelacion      String          @unique
+  tokenCancelacion      String           @unique
   recordatorioEnviadoAt DateTime?
   canceladaAt           DateTime?
-  creadaAt              DateTime        @default(now())
+  creadaAt              DateTime         @default(now())
   franjas               FranjaOcupada[]
   emails                EmailEnviado[]
+  mensajes              MensajeEnviado[]
 
   @@index([profesionalId, inicio])
   @@index([estado, inicio])
@@ -212,4 +219,23 @@ model Auditoria {
   @@index([creadoAt])
   @@index([entidad, entidadId])
   @@map("auditoria")
+}
+
+// Mensajes al móvil (Twilio). Igual que los emails: sin credenciales van a la consola, y siempre quedan aquí.
+model MensajeEnviado {
+  id          String       @id @default(cuid())
+  tipo        TipoEmail
+  canal       CanalMensaje
+  para        String // teléfono, en E.164
+  texto       String
+  error       String?
+  // Id del mensaje en Twilio. El fallo de un WhatsApp (por ejemplo, el número no tiene WhatsApp) llega después,
+  // por webhook, con este id: entonces se apunta el error y sale el SMS de reserva.
+  proveedorId String?      @unique
+  citaId      String?
+  cita        Cita?        @relation(fields: [citaId], references: [id], onDelete: SetNull)
+  enviadoAt   DateTime     @default(now())
+
+  @@index([enviadoAt])
+  @@map("mensajes_enviados")
 }

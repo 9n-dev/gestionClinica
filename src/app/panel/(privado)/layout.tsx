@@ -12,7 +12,7 @@ const ENLACES = [
   { href: "/panel/citas/nueva", texto: "Nueva cita" },
   { href: "/panel/pacientes", texto: "Pacientes" },
   { href: "/panel/bloqueos", texto: "Bloqueos" },
-  { href: "/panel/emails", texto: "Emails enviados" },
+  { href: "/panel/emails", texto: "Emails y mensajes" },
   { href: "/panel/configuracion", texto: "Configuración", admin: true },
   { href: "/panel/usuarios", texto: "Usuarios", admin: true },
   { href: "/panel/actividad", texto: "Actividad", admin: true },

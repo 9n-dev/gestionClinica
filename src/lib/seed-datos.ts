@@ -53,6 +53,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   await prisma.intento.deleteMany();
   await prisma.auditoria.deleteMany();
   await prisma.emailEnviado.deleteMany();
+  await prisma.mensajeEnviado.deleteMany();
   await prisma.franjaOcupada.deleteMany();
   await prisma.cita.deleteMany();
   await prisma.paciente.deleteMany();
@@ -155,6 +156,11 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
         ],
       });
     }
+    // Y algún recordatorio al móvil de citas que ya pasaron.
+    if (pasada && !cancelada && creadas % 5 === 0)
+      await prisma.mensajeEnviado.create({
+        data: { tipo: "RECORDATORIO", canal: "CONSOLA", para: `+34${paciente.telefono}`, citaId: cita.id, enviadoAt: new Date(inicio.getTime() - 86_400_000), texto: plantillas.recordatorioMovil({ ...cita, servicio, profesional: pro }).texto },
+      });
     creadas++;
   }
   return { citas: creadas, bloqueos: bloqueos.length };

@@ -17,6 +17,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
 - **Reserva en `/reservar`**: servicio → profesional (o «me da igual») → día y hora con huecos reales → datos de contacto → confirmación. No se pide ningún dato de salud.
 - **Sin dobles reservas, garantizado por la base de datos** (ver más abajo).
 - **Emails** de confirmación, aviso a la clínica, cancelación y recordatorio, con enlace de cancelación por token.
+- **Recordatorio al móvil** por WhatsApp y, si no llega, por SMS (Twilio). Llega también a quien reservó por teléfono y no dio email.
 - **Panel en `/panel`**:
   - Agenda por día y semana, filtrable por profesional. **Arrastra una cita** para cambiarla de hora o de profesional; pulsa en un hueco libre para crear una.
   - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional.
@@ -32,7 +33,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · Prisma 7 sobre SQLite/libSQL · Auth.js v5 (credenciales) · Zod · Resend · Vitest · Playwright · GitHub Actions.
+Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · Prisma 7 sobre SQLite/libSQL · Auth.js v5 (credenciales) · Zod · Resend · Twilio (API REST, sin SDK) · Vitest · Playwright · GitHub Actions.
 
 Sin librerías de UI: HTML semántico, Server Components y Server Actions. El asistente de reserva guarda su estado en la URL, así que funciona el botón «atrás» y casi no necesita JavaScript.
 
@@ -54,7 +55,7 @@ npm run dev          # http://localhost:3000
 | `npm run migrar` | Aplica las migraciones pendientes a la base de datos de `DATABASE_URL` (local o Turso). `npm run build` lo ejecuta antes de compilar |
 | `npm run crear-admin -- email "Nombre"` | Crea (o recupera) un administrador e imprime un enlace de un solo uso para que elija su contraseña |
 | `npm run seed` | **Solo con `MODO_DEMO=1`.** Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
-| `npm test` | Tests de la lógica: disponibilidad (pura) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad del paciente, enlaces de acceso y límite de intentos |
+| `npm test` | Tests de la lógica: disponibilidad y horario público (puros) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad y supresión de pacientes, enlaces de acceso, límite de intentos, migración de una base de datos antigua con datos, y mensajes al móvil con la API de Twilio simulada |
 | `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 
@@ -71,6 +72,9 @@ npm run dev          # http://localhost:3000
 | `RESEND_API_KEY` | No | Si está vacía, los emails se escriben en consola. En ambos casos quedan registrados en la tabla `emails_enviados` y se ven en `/panel/emails` |
 | `EMAIL_FROM` | Con Resend | Remitente, con dominio verificado en Resend |
 | `EMAIL_CLINICA` | No | Dirección que recibe los avisos de la clínica |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | No | Si faltan, los mensajes al móvil se escriben en consola. En ambos casos quedan en `mensajes_enviados` y se ven en el panel |
+| `TWILIO_WHATSAPP_FROM`, `TWILIO_WHATSAPP_PLANTILLA` | No | Número de WhatsApp (`+34…`) y Content SID (`HX…`) de la plantilla aprobada. Sin ellos se va directo al SMS |
+| `TWILIO_SMS_FROM` | No | Número o remitente de los SMS. Sin él no hay SMS de reserva |
 | `CRON_SECRET` | Sí | Protege `/api/cron/*`. Vercel Cron lo envía como `Authorization: Bearer …` |
 | `RECORDATORIO_VENTANA_HORAS` | No | Por defecto 36 (cron diario). Con un cron horario, pon 24 |
 
@@ -93,10 +97,12 @@ src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_
 src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
 src/lib/seed-datos.ts         datos de la demo (los usa el seed y el cron de reinicio)
 src/lib/emails/               plantillas y envío (Resend o consola)
+src/lib/mensajes.ts           WhatsApp y SMS con Twilio (o consola), webhook de estado y su firma
 src/lib/fechas.ts             utilidades de fecha en Europe/Madrid
 src/app/(publica)/            web, /reservar y /cita/[token]
 src/app/panel/                login, recuperación y panel (agenda, citas, pacientes, bloqueos, emails, configuración, usuarios)
 src/app/api/cron/             recordatorios y reinicio de la demo
+src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS
 e2e/                          pruebas de extremo a extremo (Playwright)
 .github/workflows/ci.yml      lint, tests y e2e en cada push
 ```
@@ -116,6 +122,16 @@ Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (adem
 Las contraseñas solo las escribe su dueño. Dar de alta a alguien le envía un enlace de un solo uso (3 días); «he olvidado mi contraseña» envía otro (1 hora) y responde lo mismo exista o no el email. En la base de datos solo está el hash SHA-256 del token, y cuando el email sale de verdad por Resend el enlace se tacha del registro de `/panel/emails`. Sin Resend se deja, porque ese registro es la única forma de leer el email: así se puede probar en la demo.
 
 En la demo, los cuatro usuarios sembrados llevan `demo = true` y no se pueden cambiar, borrar ni recuperar, para que un visitante no deje fuera a los demás. Los usuarios que cree un visitante sí, y desaparecen con el reinicio nocturno.
+
+### Recordatorios al móvil
+
+El cron de recordatorios avisa al móvil de todos los pacientes con cita (todos tienen teléfono; email, no) y además por email a quien lo tenga. Con Twilio, por su API REST y sin SDK:
+
+1. **WhatsApp** con una plantilla aprobada: fuera de una conversación abierta por el paciente, WhatsApp no admite texto libre. La plantilla se crea en Twilio con cinco huecos, en este orden: `{{1}}` nombre, `{{2}}` día, `{{3}}` hora, `{{4}}` profesional, `{{5}}` enlace para cancelar.
+2. **SMS de reserva** si el WhatsApp falla. El fallo puede venir en el acto (Twilio rechaza la petición) o después: Twilio acepta un WhatsApp para un número que no tiene WhatsApp y avisa más tarde. Para ese caso, cada envío lleva `StatusCallback` a `/api/twilio/estado`; el webhook comprueba la firma `X-Twilio-Signature`, apunta el error y envía el SMS una sola vez aunque Twilio repita el aviso.
+3. El SMS sale sin á, í, ó, ú: un solo carácter fuera del alfabeto GSM-7 lo pasa a UCS-2, con 70 caracteres por segmento en vez de 160, y se cobra el triple. La é y la ñ sí están en GSM-7 y se quedan.
+
+Sin credenciales, los mensajes se escriben en consola y quedan en el panel, como los emails. **El envío real no está probado contra Twilio** (no hay cuenta en esta demo): los tests simulan su API y comprueban peticiones, reserva, webhook y firma. Antes de usarlo con pacientes hay que probarlo con una cuenta y una plantilla reales.
 
 ### Protección de datos
 
@@ -191,5 +207,5 @@ Lo que esta demo deja fuera a propósito:
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
 - **Pacientes**: fusión de fichas duplicadas, alta sin cita e importación de la cartera que ya tenga la clínica.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.
-- Recordatorios por WhatsApp o SMS, festivos automáticos, citas periódicas, lista de espera, cobros y facturación, monitorización de errores.
+- Festivos automáticos, citas periódicas, lista de espera, cobros y facturación, monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

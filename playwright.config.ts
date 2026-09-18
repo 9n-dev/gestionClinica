@@ -31,6 +31,7 @@ export default defineConfig({
       AUTH_SECRET: "secreto-solo-para-las-pruebas-e2e",
       CRON_SECRET,
       APP_URL: `http://localhost:${DEMO.puerto}`,
+      RECORDATORIO_VENTANA_HORAS: "120", // cinco días: siempre cae algún día laborable con citas del seed
       RESEND_API_KEY: "", // los emails se quedan en la tabla emails_enviados, que es donde los leen los tests
     },
   },

@@ -122,12 +122,14 @@ describe("derecho de supresión", () => {
     expect((await suprimirPaciente(pacienteId)).ok).toBe(false);
     await cancelarCita({ id: r.id });
     expect(await prisma.emailEnviado.count({ where: { citaId: r.id } })).toBeGreaterThan(0);
+    await prisma.mensajeEnviado.create({ data: { tipo: "RECORDATORIO", canal: "CONSOLA", para: "+34633333333", texto: "Marta, te recordamos tu cita", citaId: r.id } });
     expect((await suprimirPaciente(pacienteId)).ok).toBe(true);
 
     const todo = JSON.stringify([
       await prisma.paciente.findUniqueOrThrow({ where: { id: pacienteId } }),
       await prisma.cita.findUniqueOrThrow({ where: { id: r.id } }),
       await prisma.emailEnviado.findMany({ where: { OR: [{ citaId: r.id }, { para: datos.email }] } }),
+      await prisma.mensajeEnviado.findMany(),
     ]);
     for (const dato of ["Marta", "Olvido", "633333333", "marta@correo.test"]) expect(todo).not.toContain(dato);
     expect((await prisma.paciente.findUniqueOrThrow({ where: { id: pacienteId } })).eliminadoAt).not.toBeNull();
