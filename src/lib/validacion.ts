@@ -23,6 +23,55 @@ export const esquemaReserva = z.object({
   privacidad: z.literal("on", "Necesitamos que aceptes la política de privacidad para gestionar tu cita"),
 });
 
+const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora no válida");
+const telefono = z
+  .string()
+  .transform((t) => t.replace(/[\s.-]/g, "").replace(/^(\+34|0034)/, ""))
+  .pipe(z.string().regex(/^[6-9]\d{8}$/, "Escribe un teléfono español de 9 cifras"));
+const emailOpcional = z
+  .string()
+  .trim()
+  .transform((e) => e.toLowerCase())
+  .pipe(z.union([z.literal(""), z.email("Escribe un email válido")]))
+  .transform((e) => e || null);
+
+// Cita creada desde el panel: sin antelación mínima, email opcional.
+export const esquemaCitaPanel = z.object({
+  servicio: z.string().min(1, "Elige un servicio").max(80),
+  profesional: z.string().min(1, "Elige un profesional").max(80),
+  dia,
+  hora,
+  nombre: z.string().trim().min(3, "Escribe el nombre del paciente").max(80),
+  telefono,
+  email: emailOpcional,
+  notas: z.string().trim().max(1000).optional(),
+});
+
+export const esquemaMover = z.object({ profesional: z.string().min(1).max(80), dia, hora });
+
+export const esquemaNotas = z.object({ notas: z.string().trim().max(1000) });
+
+export const esquemaServicio = z.object({
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(80),
+  descripcion: z.string().trim().min(2, "Escribe la descripción").max(500),
+  duracionMin: z.coerce.number().int().min(15, "Mínimo 15 minutos").max(240).multipleOf(15, "La duración va de 15 en 15 minutos"),
+  precio: z.coerce.number().min(0).max(9999),
+  activo: z.literal("on").optional().transform(Boolean),
+});
+
+export const esquemaProfesional = z.object({
+  nombre: z.string().trim().min(2, "Escribe el nombre").max(80),
+  titulo: z.string().trim().min(2, "Escribe el título").max(160),
+  bio: z.string().trim().min(2, "Escribe la presentación").max(1000),
+  activo: z.literal("on").optional().transform(Boolean),
+});
+
+// Horario semanal: por cada día, tramo de mañana y de tarde (vacío = no trabaja).
+const horaOpcional = z.union([z.literal(""), hora]);
+export const esquemaHorario = z.object(
+  Object.fromEntries([1, 2, 3, 4, 5, 6, 7].flatMap((d) => [`m${d}i`, `m${d}f`, `t${d}i`, `t${d}f`].map((k) => [k, horaOpcional]))),
+);
+
 const fechaHoraLocal = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Fecha no válida");
 
 export const esquemaBloqueo = z.object({

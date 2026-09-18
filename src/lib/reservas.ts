@@ -2,7 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { ANTELACION_MAX_DIAS, ANTELACION_MIN_HORAS } from "./clinica";
 import { prisma } from "./db";
 import { calcularHuecos, finDe, franjasDe } from "./disponibilidad";
-import { emailsCitaCancelada, emailsCitaNueva } from "./emails/enviar";
+import { emailCitaModificada, emailsCitaCancelada, emailsCitaNueva } from "./emails/enviar";
 import { aInstante, hoy, sumarDias, type Dia } from "./fechas";
 import { nuevoToken } from "./seed-datos";
 
@@ -17,8 +17,10 @@ export const ultimoDiaReservable = () => sumarDias(hoy(), ANTELACION_MAX_DIAS);
 /**
  * Huecos libres por día para un servicio, de un profesional o de todos ("cualquiera").
  * Una sola consulta de citas y bloqueos para todo el rango.
+ * - desdePanel: sin antelación mínima ni tope de días (la clínica reserva para hoy mismo)
+ * - excluirCitaId: al mover una cita, sus propias franjas no cuentan como ocupadas
  */
-export async function huecosEnRango(p: { desde: Dia; dias: number; duracionMin: number; profesionalSlug?: string }) {
+export async function huecosEnRango(p: { desde: Dia; dias: number; duracionMin: number; profesionalSlug?: string; desdePanel?: boolean; excluirCitaId?: string }) {
   const pros = await prisma.profesional.findMany({
     where: { activo: true, ...(p.profesionalSlug && p.profesionalSlug !== CUALQUIERA ? { slug: p.profesionalSlug } : {}) },
     include: { horarios: true },
@@ -29,12 +31,15 @@ export async function huecosEnRango(p: { desde: Dia; dias: number; duracionMin: 
   const enRango = { inicio: { lt: fin }, fin: { gt: inicio } };
   const ids = pros.map((x) => x.id);
   const [citas, bloqueos] = await Promise.all([
-    prisma.cita.findMany({ where: { ...enRango, profesionalId: { in: ids }, estado: { not: "CANCELADA" } }, select: { profesionalId: true, inicio: true, fin: true } }),
+    prisma.cita.findMany({
+      where: { ...enRango, profesionalId: { in: ids }, estado: { not: "CANCELADA" }, ...(p.excluirCitaId ? { id: { not: p.excluirCitaId } } : {}) },
+      select: { profesionalId: true, inicio: true, fin: true },
+    }),
     prisma.bloqueo.findMany({ where: { ...enRango, OR: [{ profesionalId: null }, { profesionalId: { in: ids } }] } }),
   ]);
 
-  const desde = primerInstanteReservable();
-  const ultimo = ultimoDiaReservable();
+  const desde = p.desdePanel ? new Date() : primerInstanteReservable();
+  const ultimo = p.desdePanel ? "9999-12-31" : ultimoDiaReservable();
   const resultado = new Map<Dia, Hueco[]>();
   for (let i = 0; i < p.dias; i++) {
     const dia = sumarDias(p.desde, i);
@@ -61,24 +66,30 @@ export async function proximoHueco(duracionMin: number) {
   return null;
 }
 
-type DatosReserva = { servicio: string; profesional: string; dia: Dia; hora: string; nombre: string; telefono: string; email: string };
+type DatosReserva = { servicio: string; profesional: string; dia: Dia; hora: string; nombre: string; telefono: string; email: string | null; notas?: string };
 
-export async function crearCita(d: DatosReserva): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+const instanteDe = (dia: Dia, hora: string) => {
+  const [h, m] = hora.split(":").map(Number);
+  return aInstante(dia, h * 60 + m);
+};
+
+export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ ok: true; token: string; id: string } | { ok: false; error: string }> {
   const servicio = await prisma.servicio.findFirst({ where: { slug: d.servicio, activo: true } });
   if (!servicio) return { ok: false, error: "Ese servicio ya no está disponible." };
 
-  const [h, m] = d.hora.split(":").map(Number);
-  const inicio = aInstante(d.dia, h * 60 + m);
+  const inicio = instanteDe(d.dia, d.hora);
 
   // Se recalcula la disponibilidad en el servidor: valida horario, bloqueos, antelación y rejilla de una vez.
-  const hueco = (await huecosEnRango({ desde: d.dia, dias: 1, duracionMin: servicio.duracionMin, profesionalSlug: d.profesional }))
+  const hueco = (await huecosEnRango({ desde: d.dia, dias: 1, duracionMin: servicio.duracionMin, profesionalSlug: d.profesional, desdePanel }))
     .get(d.dia)
     ?.find((x) => x.inicio.getTime() === inicio.getTime());
   if (!hueco) return { ok: false, error: "Ese hueco acaba de ocuparse. Elige otra hora, por favor." };
 
-  const activas = await prisma.cita.count({ where: { pacienteEmail: d.email, estado: "CONFIRMADA", inicio: { gt: new Date() } } });
-  if (activas >= MAX_CITAS_POR_EMAIL)
-    return { ok: false, error: `Ya tienes ${activas} citas pendientes con este email. Llámanos si necesitas más.` };
+  if (!desdePanel && d.email) {
+    const activas = await prisma.cita.count({ where: { pacienteEmail: d.email, estado: "CONFIRMADA", inicio: { gt: new Date() } } });
+    if (activas >= MAX_CITAS_POR_EMAIL)
+      return { ok: false, error: `Ya tienes ${activas} citas pendientes con este email. Llámanos si necesitas más.` };
+  }
 
   // "Cualquiera": primero el profesional con menos citas ese día.
   const carga = await prisma.cita.groupBy({
@@ -102,19 +113,52 @@ export async function crearCita(d: DatosReserva): Promise<{ ok: true; token: str
           pacienteNombre: d.nombre,
           pacienteTelefono: d.telefono,
           pacienteEmail: d.email,
+          notas: d.notas || null,
           tokenCancelacion: nuevoToken(),
           franjas: { create: franjasDe(inicio, servicio.duracionMin).map((f) => ({ profesionalId, inicio: f })) },
         },
         include: { servicio: true, profesional: true },
       });
       await emailsCitaNueva(cita);
-      return { ok: true, token: cita.tokenCancelacion };
+      return { ok: true, token: cita.tokenCancelacion, id: cita.id };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue; // franja ocupada: probar el siguiente
       throw e;
     }
   }
   return { ok: false, error: "Ese hueco acaba de ocuparse. Elige otra hora, por favor." };
+}
+
+/**
+ * Mueve una cita confirmada a otro día, hora o profesional. Libera las franjas viejas y ocupa las
+ * nuevas en una sola transacción: si el hueco nuevo está pillado, la cita se queda como estaba.
+ */
+export async function moverCita(id: string, destino: { profesional: string; dia: Dia; hora: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true } });
+  if (!cita || cita.estado !== "CONFIRMADA") return { ok: false, error: "Solo se pueden mover citas confirmadas." };
+  const pro = await prisma.profesional.findFirst({ where: { slug: destino.profesional, activo: true } });
+  if (!pro) return { ok: false, error: "Ese profesional no está disponible." };
+
+  const inicio = instanteDe(destino.dia, destino.hora);
+  if (inicio.getTime() === cita.inicio.getTime() && pro.id === cita.profesionalId) return { ok: true };
+  const hueco = (await huecosEnRango({ desde: destino.dia, dias: 1, duracionMin: cita.servicio.duracionMin, profesionalSlug: pro.slug, desdePanel: true, excluirCitaId: id }))
+    .get(destino.dia)
+    ?.find((x) => x.inicio.getTime() === inicio.getTime());
+  if (!hueco) return { ok: false, error: "Ese hueco no está libre (fuera de horario, bloqueado u ocupado)." };
+
+  try {
+    await prisma.$transaction([
+      prisma.franjaOcupada.deleteMany({ where: { citaId: id } }),
+      prisma.cita.update({ where: { id }, data: { profesionalId: pro.id, inicio, fin: finDe(inicio, cita.servicio.duracionMin) } }),
+      prisma.franjaOcupada.createMany({ data: franjasDe(inicio, cita.servicio.duracionMin).map((f) => ({ citaId: id, profesionalId: pro.id, inicio: f })) }),
+    ]);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { ok: false, error: "Ese hueco acaba de ocuparse." };
+    throw e;
+  }
+  const movida = await prisma.cita.findUniqueOrThrow({ where: { id }, include: { servicio: true, profesional: true } });
+  await emailCitaModificada(movida);
+  return { ok: true };
 }
 
 /** Cancela y libera las franjas. Devuelve false si la cita no estaba confirmada. */

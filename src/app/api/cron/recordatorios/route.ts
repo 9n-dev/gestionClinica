@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const ahora = new Date();
   const limite = new Date(ahora.getTime() + ventanaHoras() * 3_600_000);
   const citas = await prisma.cita.findMany({
-    where: { estado: "CONFIRMADA", recordatorioEnviadoAt: null, inicio: { gt: ahora, lte: limite } },
+    where: { estado: "CONFIRMADA", recordatorioEnviadoAt: null, pacienteEmail: { not: null }, inicio: { gt: ahora, lte: limite } },
     include: { servicio: true, profesional: true },
   });
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     // Se reserva la cita antes de enviar: si dos ejecuciones coinciden, solo una la consigue.
     const { count } = await prisma.cita.updateMany({ where: { id: cita.id, recordatorioEnviadoAt: null }, data: { recordatorioEnviadoAt: ahora } });
     if (!count) continue;
-    if (await emailRecordatorio(cita)) enviados++;
+    if (await emailRecordatorio({ ...cita, pacienteEmail: cita.pacienteEmail! })) enviados++;
     else await prisma.cita.update({ where: { id: cita.id }, data: { recordatorioEnviadoAt: null } }); // se reintenta en la próxima pasada
   }
   return Response.json({ pendientes: citas.length, enviados });

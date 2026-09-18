@@ -24,3 +24,9 @@ export const ANTELACION_MIN_HORAS = 2;
 export const ANTELACION_MAX_DIAS = 60;
 
 export const USUARIO_DEMO = { email: "demo@podologiaserrano.es", password: "demo1234" } as const;
+// Todos con la misma contraseña. Los de los profesionales abren la agenda filtrada por su columna.
+export const USUARIOS_DEMO = [
+  { email: USUARIO_DEMO.email, quien: "recepción, ve toda la agenda" },
+  { email: "laura@podologiaserrano.es", quien: "Dra. Serrano" },
+  { email: "marcos@podologiaserrano.es", quien: "Dr. Ortiz" },
+];

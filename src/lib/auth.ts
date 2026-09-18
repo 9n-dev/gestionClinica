@@ -15,12 +15,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credenciales) {
         const datos = esquemaLogin.safeParse(credenciales);
         if (!datos.success) return null;
-        const usuario = await prisma.usuario.findUnique({ where: { email: datos.data.email } });
+        const usuario = await prisma.usuario.findUnique({ where: { email: datos.data.email }, include: { profesional: true } });
         if (!usuario || !(await compare(datos.data.password, usuario.passwordHash))) return null;
-        return { id: usuario.id, email: usuario.email, name: usuario.nombre };
+        return { id: usuario.id, email: usuario.email, name: usuario.nombre, profesionalSlug: usuario.profesional?.slug ?? null };
       },
     }),
   ],
+  callbacks: {
+    jwt({ token, user }) {
+      if (user) token.profesionalSlug = user.profesionalSlug;
+      return token;
+    },
+    session({ session, token }) {
+      session.user.profesionalSlug = (token.profesionalSlug as string | null) ?? null;
+      return session;
+    },
+  },
 });
 
 /** Se llama en cada página y en cada acción del panel: la sesión se comprueba junto a los datos, no solo en el layout. */

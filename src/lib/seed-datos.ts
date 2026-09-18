@@ -59,9 +59,8 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   await prisma.profesional.deleteMany();
   await prisma.usuario.deleteMany();
 
-  await prisma.usuario.create({
-    data: { email: USUARIO_DEMO.email, nombre: "Usuario demo", passwordHash: hashSync(USUARIO_DEMO.password, 10) },
-  });
+  const passwordHash = hashSync(USUARIO_DEMO.password, 10);
+  await prisma.usuario.create({ data: { email: USUARIO_DEMO.email, nombre: "Recepción (demo)", passwordHash } });
 
   const servicios = await Promise.all(SERVICIOS.map((s, orden) => prisma.servicio.create({ data: { ...s, orden } })));
 
@@ -73,6 +72,8 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
     ]);
     if (sabados) tramos.push({ diaSemana: 6, minInicio: 9 * 60, minFin: 13 * 60 });
     const pro = await prisma.profesional.create({ data: { ...p, orden, horarios: { create: tramos } } });
+    // Cada profesional tiene su usuario (misma contraseña que el demo); su agenda se abre filtrada.
+    await prisma.usuario.create({ data: { email: `${p.slug.split("-")[0]}@podologiaserrano.es`, nombre: p.nombre, passwordHash, profesionalId: pro.id } });
     pros.push({ ...pro, tramos, ocupados: [] as Intervalo[] });
   }
   const [laura, marcos] = pros;
@@ -112,14 +113,15 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
         canceladaAt: cancelada ? ahora : null,
         pacienteNombre: nombre,
         pacienteTelefono: `6${String(Math.floor(rnd() * 1e8)).padStart(8, "0")}`,
-        pacienteEmail: `${sinAcentos(nombre).toLowerCase().split(" ").slice(0, 2).join(".")}@ejemplo.com`,
+        pacienteEmail: creadas % 7 === 6 ? null : `${sinAcentos(nombre).toLowerCase().split(" ").slice(0, 2).join(".")}@ejemplo.com`, // alguna sin email, como las de teléfono
+        notas: creadas % 9 === 4 ? "Trae las plantillas del año pasado." : null,
         tokenCancelacion: nuevoToken(),
         franjas: cancelada ? undefined : { create: franjasDe(inicio, servicio.duracionMin).map((f) => ({ profesionalId: pro.id, inicio: f })) },
       },
     });
     if (!cancelada) pro.ocupados.push({ inicio, fin });
     // Unos cuantos emails de muestra para el panel (registrados, nunca enviados).
-    if (!cancelada && creadas % 6 === 0) {
+    if (!cancelada && cita.pacienteEmail && creadas % 6 === 0) {
       const completa = { ...cita, servicio, profesional: pro };
       await prisma.emailEnviado.createMany({
         data: [

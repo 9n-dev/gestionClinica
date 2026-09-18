@@ -6,7 +6,7 @@ export type CitaCompleta = {
   inicio: Date;
   pacienteNombre: string;
   pacienteTelefono: string;
-  pacienteEmail: string;
+  pacienteEmail: string | null;
   tokenCancelacion: string;
   servicio: { nombre: string; duracionMin: number; precioCent: number };
   profesional: { nombre: string };
@@ -36,7 +36,7 @@ ${[
   ["Día", formatoFechaLarga(c.inicio)],
   ["Hora", formatoHora(c.inicio)],
   ["Profesional", c.profesional.nombre],
-  ...(conPaciente ? [["Paciente", c.pacienteNombre], ["Teléfono", c.pacienteTelefono], ["Email", c.pacienteEmail]] : [["Dirección", DIRECCION_COMPLETA]]),
+  ...(conPaciente ? [["Paciente", c.pacienteNombre], ["Teléfono", c.pacienteTelefono], ["Email", c.pacienteEmail ?? "sin email"]] : [["Dirección", DIRECCION_COMPLETA]]),
 ]
   .map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#55617a;vertical-align:top">${k}</td><td style="padding:6px 0;font-weight:bold">${esc(v)}</td></tr>`)
   .join("")}
@@ -61,6 +61,11 @@ export const plantillas = {
     asunto: `Recordatorio: tu cita del ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)}`,
     html: marco("Te recordamos tu cita", `<p>Hola, ${nombrePila(c)}. Esto es un recordatorio de tu próxima cita:</p>${ficha(c)}
 <p>Si al final no puedes venir, avísanos cancelándola aquí:</p>${boton(urlCita(c.tokenCancelacion), "Ver o cancelar mi cita")}`),
+  }),
+  modificacionPaciente: (c: CitaCompleta) => ({
+    asunto: `Tu cita ha cambiado: ahora es el ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)}`,
+    html: marco("Tu cita ha cambiado de hora", `<p>Hola, ${nombrePila(c)}. Desde la clínica hemos movido tu cita. Estos son los datos nuevos:</p>${ficha(c)}
+<p>Si la hora nueva no te viene bien, llámanos al ${CLINICA.telefono} o cancela la cita aquí:</p>${boton(urlCita(c.tokenCancelacion), "Ver o cancelar mi cita")}`),
   }),
   cancelacionPaciente: (c: CitaCompleta) => ({
     asunto: `Cita cancelada: ${formatoFechaLarga(c.inicio)} a las ${formatoHora(c.inicio)}`,

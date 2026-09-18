@@ -38,14 +38,18 @@ export async function enviarEmail(e: { tipo: TipoEmail; para: string; asunto: st
 }
 
 export async function emailsCitaNueva(c: CitaCompleta) {
-  await enviarEmail({ tipo: "CONFIRMACION_PACIENTE", para: c.pacienteEmail, citaId: c.id, ...plantillas.confirmacionPaciente(c) });
+  if (c.pacienteEmail) await enviarEmail({ tipo: "CONFIRMACION_PACIENTE", para: c.pacienteEmail, citaId: c.id, ...plantillas.confirmacionPaciente(c) });
   await enviarEmail({ tipo: "AVISO_CLINICA", para: clinica(), citaId: c.id, ...plantillas.avisoClinica(c) });
 }
 
 export async function emailsCitaCancelada(c: CitaCompleta, avisarPaciente: boolean) {
-  if (avisarPaciente) await enviarEmail({ tipo: "CANCELACION", para: c.pacienteEmail, citaId: c.id, ...plantillas.cancelacionPaciente(c) });
+  if (avisarPaciente && c.pacienteEmail) await enviarEmail({ tipo: "CANCELACION", para: c.pacienteEmail, citaId: c.id, ...plantillas.cancelacionPaciente(c) });
   await enviarEmail({ tipo: "CANCELACION", para: clinica(), citaId: c.id, ...plantillas.cancelacionClinica(c) });
 }
 
-export const emailRecordatorio = (c: CitaCompleta) =>
+export const emailRecordatorio = (c: CitaCompleta & { pacienteEmail: string }) =>
   enviarEmail({ tipo: "RECORDATORIO", para: c.pacienteEmail, citaId: c.id, ...plantillas.recordatorio(c) });
+
+export const emailCitaModificada = async (c: CitaCompleta) => {
+  if (c.pacienteEmail) await enviarEmail({ tipo: "MODIFICACION", para: c.pacienteEmail, citaId: c.id, ...plantillas.modificacionPaciente(c) });
+};
