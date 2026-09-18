@@ -5,7 +5,7 @@ const RUTA = `/tmp/podologia-test-retencion-${process.pid}.db`;
 process.env.DATABASE_URL = `file:${RUTA}`;
 const { prisma } = await import("./db");
 const { migrar } = await import("./migraciones");
-const { aplicarRetencion } = await import("./retencion");
+const { aplicarRetencion, hace: haceMeses } = await import("./retencion");
 
 const AHORA = new Date("2026-09-18T06:00:00Z");
 const hace = (meses: number) => new Date(Date.UTC(2026, 8 - meses, 18, 9));
@@ -82,4 +82,11 @@ it("al borrar una cita cancelada se van con ella sus emails y mensajes, aunque s
   expect(await prisma.emailEnviado.count({ where: { html: "Cancelada Con Correo" } })).toBe(0);
   expect(await prisma.mensajeEnviado.count({ where: { texto: "Cancelada Con Correo" } })).toBe(0);
   delete process.env.RETENCION_MENSAJES_MESES;
+});
+
+it("restar meses no se pasa al mes siguiente cuando el día no existe", () => {
+  const dia = (d: Date) => d.toISOString().slice(0, 10);
+  expect(dia(haceMeses(new Date("2026-05-31T06:00:00Z"), 3))).toBe("2026-02-28"); // no el 3 de marzo
+  expect(dia(haceMeses(new Date("2028-02-29T06:00:00Z"), 12))).toBe("2027-02-28");
+  expect(dia(haceMeses(new Date("2026-09-18T06:00:00Z"), 12))).toBe("2025-09-18");
 });

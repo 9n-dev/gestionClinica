@@ -49,14 +49,17 @@ async function enviarSms(m: Mensaje) {
   return !r.error;
 }
 
-/** Nunca lanza: un fallo al avisar no debe tumbar lo que lo llamó. Devuelve si el mensaje ha salido por algún canal. */
+/**
+ * Nunca lanza: un fallo al avisar no debe tumbar lo que lo llamó. Devuelve "ENVIADO" si ha salido por WhatsApp o SMS,
+ * "CONSOLA" si no hay proveedor (no le ha llegado a nadie: quien llama decide si eso le basta) y false si ha fallado.
+ */
 export async function enviarMensaje(m: Mensaje) {
   try {
     // En la demo no sale nada aunque haya cuenta de Twilio: con las contraseñas a la vista, cualquiera gastaría SMS.
     if (MODO_DEMO || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
       console.log(`[mensaje:${m.tipo}] sin enviar${m.citaId ? `, cita ${m.citaId}` : ""}: está en mensajes_enviados`); // sin teléfono ni texto: lleva el enlace para cancelar
       await registrar(m, "CONSOLA", {});
-      return true;
+      return "CONSOLA" as const;
     }
     if (process.env.TWILIO_WHATSAPP_FROM && process.env.TWILIO_WHATSAPP_PLANTILLA) {
       // Fuera de una conversación abierta por el paciente, WhatsApp solo admite plantillas aprobadas.
@@ -68,9 +71,9 @@ export async function enviarMensaje(m: Mensaje) {
         StatusCallback: urlEstado(),
       });
       await registrar(m, "WHATSAPP", r);
-      if (!r.error) return true;
+      if (!r.error) return "ENVIADO" as const;
     }
-    return await enviarSms(m);
+    return (await enviarSms(m)) && ("ENVIADO" as const);
   } catch (e) {
     console.error("[mensaje] fallo inesperado", e);
     return false;

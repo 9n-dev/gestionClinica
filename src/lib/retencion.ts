@@ -12,7 +12,12 @@ const meses = (clave: string, porDefecto: number) => {
   const n = Number(process.env[clave] ?? porDefecto);
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
-const hace = (ahora: Date, n: number) => new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - n, ahora.getUTCDate()));
+/** `n` meses antes. Si ese mes no tiene el día (31 de mayo menos 3), el último que tenga: 28 de febrero, no 3 de marzo. */
+export function hace(ahora: Date, n: number) {
+  const [anio, mes] = [ahora.getUTCFullYear(), ahora.getUTCMonth() - n];
+  const ultimoDia = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(anio, mes, Math.min(ahora.getUTCDate(), ultimoDia)));
+}
 
 export async function aplicarRetencion(ahora = new Date()) {
   const r = { citasCanceladas: 0, pacientesInactivos: 0, emails: 0, mensajes: 0, actividad: 0 };

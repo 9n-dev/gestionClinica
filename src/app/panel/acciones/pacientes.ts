@@ -91,7 +91,7 @@ export async function quitarDeEspera(id: string) {
 
 export type EstadoImportacion = {
   error?: string;
-  comprobado?: { validas: FilaPaciente[]; errores: { linea: number; texto: string; motivo: string }[]; repetidas: number };
+  comprobado?: { validas: FilaPaciente[]; errores: { linea: number; texto: string; motivo: string }[]; totalErrores: number; repetidas: number };
   hecho?: { creados: number; yaExistian: number };
 };
 
@@ -101,7 +101,7 @@ export async function comprobarImportacion(_: EstadoImportacion, fd: FormData): 
   const fichero = fd.get("fichero");
   if (!(fichero instanceof File) || !fichero.size) return { error: "Elige un fichero CSV." };
   const r = prepararPacientes(leerCsv(decodificar(new Uint8Array(await fichero.arrayBuffer()))));
-  return "error" in r ? { error: r.error } : { comprobado: { ...r, errores: r.errores.slice(0, 100) } };
+  return "error" in r ? { error: r.error } : { comprobado: { ...r, errores: r.errores.slice(0, 100), totalErrores: r.errores.length } };
 }
 
 /** Paso 2: crea los pacientes que no existan ya. Las filas vuelven del navegador, así que se validan otra vez. */

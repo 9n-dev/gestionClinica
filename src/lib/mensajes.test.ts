@@ -36,7 +36,7 @@ afterAll(async () => {
 
 it("sin credenciales de Twilio no sale nada: consola y registro", async () => {
   const f = respuestas();
-  expect(await enviarMensaje(mensaje)).toBe(true);
+  expect(await enviarMensaje(mensaje)).toBe("CONSOLA"); // no es una entrega: el cron solo la da por buena si tampoco hay email
   expect(f).not.toHaveBeenCalled();
   expect(await prisma.mensajeEnviado.findMany()).toMatchObject([{ canal: "CONSOLA", para: "+34612345678", texto: mensaje.texto, error: null }]);
 });
@@ -44,7 +44,7 @@ it("sin credenciales de Twilio no sale nada: consola y registro", async () => {
 it("con plantilla, sale por WhatsApp con sus variables y el webhook de estado", async () => {
   Object.assign(process.env, TWILIO);
   const f = respuestas([201, { sid: "SM1" }]);
-  expect(await enviarMensaje(mensaje)).toBe(true);
+  expect(await enviarMensaje(mensaje)).toBe("ENVIADO");
   expect(f.mock.calls[0][0]).toBe("https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json");
   expect(f.mock.calls[0][1].headers.authorization).toBe(`Basic ${Buffer.from("AC123:secreto").toString("base64")}`);
   expect(cuerpoDe(f, 0)).toEqual({
@@ -60,7 +60,7 @@ it("con plantilla, sale por WhatsApp con sus variables y el webhook de estado", 
 it("si Twilio rechaza el WhatsApp en el acto, sale el SMS (sin acentos que lo encarezcan)", async () => {
   Object.assign(process.env, TWILIO);
   const f = respuestas([400, { message: "plantilla no aprobada" }], [201, { sid: "SM2" }]);
-  expect(await enviarMensaje(mensaje)).toBe(true);
+  expect(await enviarMensaje(mensaje)).toBe("ENVIADO");
   expect(cuerpoDe(f, 1)).toEqual({ To: "+34612345678", From: "+34900000000", Body: "Podologia: tu cita es mañana a las 10:00" });
   const filas = await prisma.mensajeEnviado.findMany({ orderBy: { enviadoAt: "asc" } });
   expect(filas).toMatchObject([{ canal: "WHATSAPP", error: "plantilla no aprobada" }, { canal: "SMS", proveedorId: "SM2", error: null }]);

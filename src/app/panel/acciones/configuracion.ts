@@ -63,7 +63,7 @@ export async function guardarHorario(profesionalId: string, _: Estado, fd: FormD
   const { user } = await requerirAdmin();
   const datos = esquemaHorario.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
-  const tramos = [];
+  const tramos: { diaSemana: number; minInicio: number; minFin: number }[] = [];
   for (const d of [1, 2, 3, 4, 5, 6, 7]) {
     for (const t of ["m", "t"]) {
       const i = datos.data[`${t}${d}i`];
@@ -71,6 +71,10 @@ export async function guardarHorario(profesionalId: string, _: Estado, fd: FormD
       if (!i && !f) continue;
       if (!i || !f) return { error: "Cada tramo necesita hora de inicio y de fin." };
       if (aMinutos(f) <= aMinutos(i)) return { error: `El tramo ${minutosAHora(aMinutos(i))}–${minutosAHora(aMinutos(f))} acaba antes de empezar.` };
+      // La agenda y la reserva van en una rejilla de 15 minutos: un horario a las 9:10 daría huecos que luego no se pueden mover.
+      if (aMinutos(i) % 15 || aMinutos(f) % 15) return { error: "Las horas van de 15 en 15 minutos: en punto, y cuarto, y media o menos cuarto." };
+      const anterior = tramos.at(-1);
+      if (anterior?.diaSemana === d && aMinutos(i) < anterior.minFin) return { error: "El tramo de tarde empieza antes de que acabe el de mañana." };
       tramos.push({ diaSemana: d, minInicio: aMinutos(i), minFin: aMinutos(f) });
     }
   }

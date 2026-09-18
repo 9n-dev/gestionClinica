@@ -2,7 +2,7 @@ import { z } from "zod";
 import { esDia } from "./fechas";
 
 export const esquemaLogin = z.object({
-  email: z.email().max(200),
+  email: z.email().max(200).transform((e) => e.toLowerCase()), // los usuarios se guardan en minúsculas
   password: z.string().min(1).max(200),
 });
 

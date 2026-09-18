@@ -12,16 +12,14 @@ export type Tramo = { col: number; desde: number; hasta: number };
 export type BloqueoRejilla = { id: string; col: number; desde: number; hasta: number; motivo: string };
 export type CitaRejilla = { id: string; col: number; desde: number; hasta: number; hora: string; nombre: string; servicio: string; estado: string; movible: boolean; tono: string; inicioIso: string };
 
-export const DESDE = 9 * 60;
-export const HASTA = 20 * 60;
 const FILA = 15;
-const FILAS = (HASTA - DESDE) / FILA;
 const CABECERAS = 2;
-const fila = (min: number) => Math.round((Math.min(Math.max(min, DESDE), HASTA) - DESDE) / FILA) + 1 + CABECERAS;
 
-type Props = { columnas: Columna[]; nPros: number; vista: "dia" | "semana"; tramos: Tramo[]; bloqueos: BloqueoRejilla[]; citas: CitaRejilla[]; filtro: string };
+type Props = { desde: number; hasta: number; columnas: Columna[]; nPros: number; vista: "dia" | "semana"; tramos: Tramo[]; bloqueos: BloqueoRejilla[]; citas: CitaRejilla[]; filtro: string };
 
-export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtro }: Props) {
+export function Rejilla({ desde: DESDE, hasta: HASTA, columnas, nPros, vista, tramos, bloqueos, citas, filtro }: Props) {
+  const FILAS = (HASTA - DESDE) / FILA;
+  const fila = (min: number) => Math.round((Math.min(Math.max(min, DESDE), HASTA) - DESDE) / FILA) + 1 + CABECERAS;
   const urlDia = (dia: string) => `/panel/agenda?vista=dia&fecha=${dia}&profesional=${filtro}`;
   const router = useRouter();
   const [pendiente, empezar] = useTransition();

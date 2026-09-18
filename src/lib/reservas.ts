@@ -104,7 +104,8 @@ export async function crearCita(d: DatosReserva, desdePanel = false, avisar = tr
   const candidatos = [...hueco.profesionalIds].sort((a, b) => citasDe(a) - citasDe(b));
 
   const nombreNorm = normalizarNombre(d.nombre);
-  for (const profesionalId of candidatos) {
+  // Dos intentos por profesional: ver el comentario del catch.
+  for (const profesionalId of candidatos.flatMap((id) => [id, id])) {
     try {
       // Cita, franjas y paciente (si es nuevo) se insertan en una única transacción. Si otra reserva ocupó alguna franja,
       // la clave primaria (profesionalId, inicio) de franjas_ocupadas falla y no se guarda nada.
@@ -137,7 +138,12 @@ export async function crearCita(d: DatosReserva, desdePanel = false, avisar = tr
       if (avisar) await emailsCitaNueva(cita);
       return { ok: true, token: cita.tokenCancelacion, id: cita.id };
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue; // franja ocupada: probar el siguiente
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+      // Clave repetida. Casi siempre es la franja (alguien se adelantó): toca el siguiente profesional. Pero también salta
+      // si dos reservas crean a la vez la ficha del mismo paciente nuevo; ahí el hueco sigue libre y basta con repetir,
+      // que ahora la ficha ya existe. Se distingue mirando si la franja está ocupada de verdad.
+      const ocupada = await prisma.franjaOcupada.count({ where: { profesionalId, inicio: { in: franjasDe(inicio, servicio.duracionMin) } } });
+      if (ocupada) continue;
       throw e;
     }
   }
@@ -164,11 +170,15 @@ export async function moverCita(id: string, destino: { profesional: string; dia:
   try {
     await prisma.$transaction([
       prisma.franjaOcupada.deleteMany({ where: { citaId: id } }),
-      prisma.cita.update({ where: { id }, data: { profesionalId: pro.id, inicio, fin: finDe(inicio, cita.servicio.duracionMin) } }),
+      // `estado: "CONFIRMADA"` en el where: si el paciente la cancela mientras recepción la mueve, este update no encuentra
+      // nada, falla y se lleva la transacción entera. Sin eso, quedaba una cita cancelada con franjas ocupadas: un hueco
+      // que la web ofrecía y nadie podía reservar. El recordatorio se reinicia: el de la fecha vieja ya no vale para la nueva.
+      prisma.cita.update({ where: { id, estado: "CONFIRMADA" }, data: { profesionalId: pro.id, inicio, fin: finDe(inicio, cita.servicio.duracionMin), recordatorioEnviadoAt: null } }),
       prisma.franjaOcupada.createMany({ data: franjasDe(inicio, cita.servicio.duracionMin).map((f) => ({ citaId: id, profesionalId: pro.id, inicio: f })) }),
     ]);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { ok: false, error: "Ese hueco acaba de ocuparse." };
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") return { ok: false, error: "Solo se pueden mover citas confirmadas: esta acaba de cancelarse." };
     throw e;
   }
   const movida = await prisma.cita.findUniqueOrThrow({ where: { id }, include: { servicio: true, profesional: true } });

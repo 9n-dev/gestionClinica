@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { rangoDe } from "@/lib/agenda";
 import { requerirSesion } from "@/lib/auth";
 import { puedeGestionar } from "@/lib/permisos";
 import { prisma } from "@/lib/db";
 import { aInstante, diaDe, diaSemana, esDia, formatoDia, formatoHora, hoy, lunesDe, minutosDe, sumarDias, type Dia } from "@/lib/fechas";
-import { DESDE, HASTA, Rejilla, type BloqueoRejilla, type CitaRejilla, type Tramo } from "./Rejilla";
+import { Rejilla, type BloqueoRejilla, type CitaRejilla, type Tramo } from "./Rejilla";
 
 export const metadata: Metadata = { title: "Agenda" };
 
@@ -55,8 +56,8 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
       .map((b) => ({
         id: b.id,
         col,
-        desde: b.inicio <= aInstante(c.dia) ? DESDE : minutosDe(b.inicio),
-        hasta: b.fin >= aInstante(sumarDias(c.dia, 1)) ? HASTA : minutosDe(b.fin),
+        desde: b.inicio <= aInstante(c.dia) ? 0 : minutosDe(b.inicio),
+        hasta: b.fin >= aInstante(sumarDias(c.dia, 1)) ? 24 * 60 : minutosDe(b.fin),
         motivo: b.motivo,
       })),
   );
@@ -123,7 +124,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<P
       </div>
 
       <div className="mt-4">
-        <Rejilla columnas={columnas} nPros={pros.length} vista={vista} tramos={tramos} bloqueos={bloqueosRejilla} citas={citasRejilla} filtro={filtro ?? "todos"} />
+        <Rejilla {...rangoDe([...tramos, ...citasRejilla])} columnas={columnas} nPros={pros.length} vista={vista} tramos={tramos} bloqueos={bloqueosRejilla} citas={citasRejilla} filtro={filtro ?? "todos"} />
       </div>
 
       {canceladas.length > 0 && (

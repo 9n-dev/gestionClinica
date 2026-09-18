@@ -37,7 +37,7 @@ export function FormularioImportar() {
           <ul className="mt-3 space-y-1">
             <li><strong>{c.validas.length}</strong> {c.validas.length === 1 ? "paciente listo" : "pacientes listos"} para importar</li>
             {c.repetidas > 0 && <li><strong>{c.repetidas}</strong> {c.repetidas === 1 ? "fila repetida" : "filas repetidas"} dentro del fichero (se importa una sola vez)</li>}
-            {c.errores.length > 0 && <li className="text-error"><strong>{c.errores.length}</strong> {c.errores.length === 1 ? "fila con problemas" : "filas con problemas"}, que no se importarán:</li>}
+            {c.totalErrores > 0 && <li className="text-error"><strong>{c.totalErrores}</strong> {c.totalErrores === 1 ? "fila con problemas" : "filas con problemas"}, que no se importarán{c.totalErrores > c.errores.length && ` (se muestran las ${c.errores.length} primeras)`}:</li>}
           </ul>
           {c.errores.length > 0 && (
             <div className="mt-2 max-h-64 overflow-y-auto rounded border border-linea">

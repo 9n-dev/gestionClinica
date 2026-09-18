@@ -21,6 +21,9 @@ const csp = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // La importación de pacientes reenvía las filas ya comprobadas como JSON, que abulta bastante más que el CSV de 1 MB
+  // del que salen (claves repetidas en cada fila, acentos en UTF-8). Con el límite por defecto, de 1 MB, reventaba al confirmar.
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   headers: async () => [
     {
       source: "/:path*",

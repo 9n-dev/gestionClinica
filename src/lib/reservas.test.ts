@@ -221,3 +221,38 @@ describe("hallazgos de la auditoría de seguridad", () => {
     expect(await cancelarCita({ id: r.id })).toBe(true); // la clínica sí puede, desde el panel
   });
 });
+
+describe("hallazgos de la revisión de corrección", () => {
+  it("mover y cancelar la misma cita a la vez nunca deja una cita cancelada con el hueco ocupado", async () => {
+    const dia = sumarDias(LUNES, 35);
+    for (let i = 0; i < 8; i++) {
+      const r = await crearCita({ ...paciente, servicio: "consulta-general", profesional: "laura-serrano", dia, hora: "09:00" }, true);
+      if (!r.ok) throw new Error(r.error);
+      await Promise.all([moverCita(r.id, { profesional: "laura-serrano", dia, hora: "16:00" }), cancelarCita({ id: r.id })]);
+      const c = await citaDe(r.id);
+      if (c.estado === "CANCELADA") expect(c.franjas, `intento ${i}`).toHaveLength(0);
+      else await cancelarCita({ id: r.id }); // ganó el movimiento: se limpia para la vuelta siguiente
+      // y en cualquier caso, las 16:00 se pueden volver a dar
+      const otra = await crearCita({ ...paciente, servicio: "consulta-general", profesional: "laura-serrano", dia, hora: "16:00" }, true);
+      expect(otra.ok, `intento ${i}`).toBe(true);
+      if (otra.ok) await cancelarCita({ id: otra.id });
+    }
+  });
+
+  it("una cita ya recordada, si se mueve, vuelve a recordarse en su fecha nueva", async () => {
+    const dia = sumarDias(LUNES, 36);
+    const r = await crearCita({ ...paciente, servicio: "consulta-general", profesional: "laura-serrano", dia, hora: "09:00" }, true);
+    if (!r.ok) throw new Error(r.error);
+    await prisma.cita.update({ where: { id: r.id }, data: { recordatorioEnviadoAt: new Date() } });
+    expect((await moverCita(r.id, { profesional: "laura-serrano", dia: sumarDias(dia, 1), hora: "10:00" })).ok).toBe(true);
+    expect((await citaDe(r.id)).recordatorioEnviadoAt).toBeNull();
+  });
+
+  it("dos reservas a la vez del mismo paciente nuevo, a horas distintas, entran las dos", async () => {
+    const dia = sumarDias(LUNES, 37);
+    const nuevo = { nombre: "Paciente Simultáneo", telefono: "699000123", email: null, servicio: "consulta-general", profesional: "laura-serrano", dia };
+    const [a, b] = await Promise.all([crearCita({ ...nuevo, hora: "09:00" }, true), crearCita({ ...nuevo, hora: "11:00" }, true)]);
+    expect([a.ok, b.ok]).toEqual([true, true]);
+    expect(await prisma.paciente.count({ where: { telefono: "699000123" } })).toBe(1);
+  });
+});
