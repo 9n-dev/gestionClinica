@@ -11,13 +11,18 @@ import { nuevoToken } from "./seed-datos";
 
 const huella = (token: string) => createHash("sha256").update(token).digest("hex");
 
-export async function enviarAcceso(u: { id: string; email: string; nombre: string }, invitacion: boolean) {
+/** Genera el enlace y anula el anterior, si lo había. */
+export async function crearEnlaceAcceso(usuarioId: string, invitacion: boolean) {
   const token = nuevoToken();
   await prisma.usuario.update({
-    where: { id: u.id },
+    where: { id: usuarioId },
     data: { accesoTokenHash: huella(token), accesoExpira: new Date(Date.now() + (invitacion ? 72 : 1) * 3_600_000) },
   });
-  const url = `${URL_BASE()}/panel/acceso/${token}`;
+  return `${URL_BASE()}/panel/acceso/${token}`;
+}
+
+export async function enviarAcceso(u: { id: string; email: string; nombre: string }, invitacion: boolean) {
+  const url = await crearEnlaceAcceso(u.id, invitacion);
   return enviarEmail({ tipo: "ACCESO", para: u.email, secreto: url, ...plantillas.acceso(u.nombre, url, invitacion) });
 }
 

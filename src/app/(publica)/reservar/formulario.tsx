@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 import { reservar, type EstadoReserva } from "./acciones";
 
-type Props = { servicio: string; profesional: string; dia: string; hora: string; urlHoras: string };
+type Props = { servicio: string; profesional: string; dia: string; hora: string; urlHoras: string; responsable: string };
 
-export function FormularioPaciente({ urlHoras, ...cita }: Props) {
+export function FormularioPaciente({ urlHoras, responsable, ...cita }: Props) {
   const [estado, accion, enviando] = useActionState<EstadoReserva, FormData>(reservar, {});
   const aviso = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -78,7 +78,7 @@ export function FormularioPaciente({ urlHoras, ...cita }: Props) {
       <button className="btn btn-primario px-7 text-lg" disabled={enviando}>{enviando ? "Reservando…" : "Confirmar cita"}</button>
 
       <p className="text-base text-pizarra">
-        Responsable: Podología Serrano, S.L.P. Finalidad: gestionar tu cita y enviarte la confirmación y un recordatorio. Base legal: tu solicitud de cita.
+        Responsable: {responsable}. Finalidad: gestionar tu cita y enviarte la confirmación y un recordatorio. Base legal: tu solicitud de cita.
         No pedimos ni guardamos aquí datos de salud. Puedes acceder, rectificar o suprimir tus datos escribiendo a hola@podologiaserrano.es.
       </p>
     </form>

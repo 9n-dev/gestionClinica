@@ -9,6 +9,7 @@
     "lint": "eslint",
     "migrar": "tsx prisma/migrar.ts",
     "seed": "tsx prisma/seed.ts",
+    "crear-admin": "tsx prisma/crear-admin.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "postinstall": "prisma generate"

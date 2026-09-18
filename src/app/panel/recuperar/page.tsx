@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MODO_DEMO } from "@/lib/clinica";
 import { FormularioRecuperar } from "./formulario";
 
 export const metadata: Metadata = { title: "Recuperar contraseña", robots: { index: false } };
@@ -13,7 +14,7 @@ export default function Recuperar() {
         <div className="mt-6 rounded-lg border border-linea bg-white p-6">
           <FormularioRecuperar />
         </div>
-        <p className="mt-4 rounded-lg bg-ambar-claro p-4 text-base">En esta demo los usuarios de demostración tienen la contraseña fija. Crea un usuario en «Usuarios» (como administración) para probarlo: el email aparece en «Emails enviados».</p>
+        {MODO_DEMO && <p className="mt-4 rounded-lg bg-ambar-claro p-4 text-base">En esta demo los usuarios de demostración tienen la contraseña fija. Crea un usuario en «Usuarios» (como administración) para probarlo: el email aparece en «Emails enviados».</p>}
         <p className="mt-6"><Link href="/panel/login" className="enlace">Volver al acceso</Link></p>
       </div>
     </main>

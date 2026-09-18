@@ -9,6 +9,8 @@ Demo de portfolio: web pública + reserva de citas online + panel de agenda para
 - `admin@podologiaserrano.es`: administración. Además ve «Configuración» y «Usuarios».
 - `laura@podologiaserrano.es` y `marcos@podologiaserrano.es`: cada profesional entra con su agenda filtrada.
 
+La misma base de código sirve para la demo y para una clínica real: lo decide la variable `MODO_DEMO` (ver [Instalarlo en una clínica real](#instalarlo-en-una-clínica-real)).
+
 ## Qué incluye
 
 - **Web pública**: inicio, servicios y precios, equipo, contacto con mapa, aviso legal, privacidad y política de cookies con banner funcional (el mapa de Google solo se carga si se aceptan las cookies de terceros).
@@ -21,7 +23,7 @@ Demo de portfolio: web pública + reserva de citas online + panel de agenda para
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
   - Bloqueo de horas (comidas, vacaciones, festivos) con aviso si hay citas dentro.
-  - Configuración (solo administración): servicios y precios, profesionales y horario semanal de cada uno.
+  - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
   - **Usuarios y roles** (solo administración): alta, cambio de rol y baja. Nadie escribe la contraseña de otro: el usuario nuevo recibe un enlace de un solo uso para elegirla, y el mismo mecanismo sirve para «he olvidado mi contraseña».
   - Registro de todos los emails enviados.
 - **Límite de intentos** en el login, en la reserva web y en la recuperación de contraseña.
@@ -49,15 +51,18 @@ npm run dev          # http://localhost:3000
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` / `npm start` | Build y servidor de producción |
 | `npm run migrar` | Aplica las migraciones pendientes a la base de datos de `DATABASE_URL` (local o Turso). `npm run build` lo ejecuta antes de compilar |
-| `npm run seed` | Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
+| `npm run crear-admin -- email "Nombre"` | Crea (o recupera) un administrador e imprime un enlace de un solo uso para que elija su contraseña |
+| `npm run seed` | **Solo con `MODO_DEMO=1`.** Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
 | `npm test` | Tests de la lógica: disponibilidad (pura) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad del paciente, enlaces de acceso y límite de intentos |
-| `npm run test:e2e` | Playwright contra el build de producción con una base de datos recién sembrada (`e2e.db`): reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, y bloqueo del login. La primera vez: `npx playwright install chromium` |
+| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 
 ## Variables de entorno
 
 | Variable | Obligatoria | Descripción |
 | --- | --- | --- |
+| `MODO_DEMO` | No | `1` en la demo: contraseñas a la vista en el login, `npm run seed`, reinicio diario y avisos de demo. Vacía en una clínica real: el seed y el cron de reinicio se niegan a ejecutarse |
+| `CLINICA_*` | En una clínica real | Nombre, razón social, NIF, dirección, teléfono, email y coordenadas (lista completa en `.env.example`). Sin definir, salen los de la clínica ficticia |
 | `DATABASE_URL` | Sí | `file:./dev.db` en local; `libsql://…` de Turso en producción |
 | `DATABASE_AUTH_TOKEN` | Solo con Turso | Token de la base de datos de Turso |
 | `AUTH_SECRET` | Sí | Secreto de Auth.js. Genera uno con `npx auth secret` |
@@ -81,6 +86,9 @@ src/lib/pacientes.ts          normalización del nombre (identidad y búsqueda)
 src/lib/auth.ts               Auth.js, usuario de la petición y roles
 src/lib/acceso.ts             enlaces de un solo uso para poner contraseña
 src/lib/limite.ts             límite de intentos
+src/lib/migraciones.ts        ejecutor de migraciones (build, seed y CLI)
+src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_DEMO
+src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
 src/lib/seed-datos.ts         datos de la demo (los usa el seed y el cron de reinicio)
 src/lib/emails/               plantillas y envío (Resend o consola)
 src/lib/fechas.ts             utilidades de fecha en Europe/Madrid
@@ -156,14 +164,23 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recorda
 
 **Copias de seguridad:** Turso guarda el historial y permite restaurar a un punto en el tiempo (`turso db create restaurada --from-db podologia-serrano --timestamp …`). Para tener además una copia fuera: `turso db shell podologia-serrano .dump > copia.sql`. Una copia que no se ha probado a restaurar no cuenta: restáurala en una base de datos nueva y arranca la app contra ella antes de darla por buena.
 
+## Instalarlo en una clínica real
+
+1. Base de datos en Turso y proyecto en Vercel, como arriba, pero **sin** `MODO_DEMO` y con las variables `CLINICA_*`, `RESEND_API_KEY` y `EMAIL_FROM` de la clínica. No ejecutes `npm run seed` (se negará).
+2. Despliega: el build crea las tablas.
+3. Desde tu máquina, apuntando a Turso: `DATABASE_URL="libsql://…" DATABASE_AUTH_TOKEN="…" APP_URL="https://…" npm run crear-admin -- ana@clinica.es "Ana García"`. Abre el enlace que imprime y elige la contraseña.
+4. En el panel, «Configuración»: da de alta profesionales, sus horarios y los servicios. En «Usuarios», al resto del equipo.
+5. Puedes quitar el cron `reset-demo` de `vercel.json`; si se queda, responde 404.
+
+Los textos de la web pública (portada, equipo, cómo llegar, legales) hablan de la clínica ficticia: son contenido, y se cambian en `src/app/(publica)/`.
+
 ## Para convertirlo en un producto real
 
 Lo que esta demo deja fuera a propósito:
 
-- **Quitar el modo demo**: el cron de reinicio, las contraseñas a la vista en el login y los usuarios con `demo = true`.
 - **Protección de datos**: una agenda de podología con notas es dato de salud. Contratos de encargo con los proveedores, alojamiento en la UE, registro de accesos, retención y borrado, y textos legales revisados por la asesoría de cada clínica.
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
 - **Pacientes**: fusión de fichas duplicadas y exportación o borrado de los datos de un paciente.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.
-- Recordatorios por WhatsApp o SMS, festivos automáticos, citas periódicas, lista de espera, cobros y facturación, alta de profesionales desde el panel, monitorización de errores.
+- Recordatorios por WhatsApp o SMS, festivos automáticos, citas periódicas, lista de espera, cobros y facturación, monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

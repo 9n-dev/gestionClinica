@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HuellaIsobaras } from "@/components/HuellaIsobaras";
 import { Tarifa } from "@/components/Tarifa";
 import { CLINICA, DIRECCION_COMPLETA } from "@/lib/clinica";
+import { horarioPublico } from "@/lib/horario";
 import { prisma } from "@/lib/db";
 import { formatoFechaLarga, formatoHora, hoy, sumarDias } from "@/lib/fechas";
 import { proximoHueco } from "@/lib/reservas";
@@ -73,7 +74,7 @@ export default async function Inicio() {
             <p className="mt-6"><Link href="/contacto" className="enlace">Cómo llegar y mapa</Link></p>
           </div>
           <dl className="space-y-3 self-center">
-            {CLINICA.horario.map((h) => (
+            {(await horarioPublico()).texto.map((h) => (
               <div key={h.dias} className="grid grid-cols-[11rem_1fr] gap-2">
                 <dt className="font-bold">{h.dias}</dt>
                 <dd>{h.horas}</dd>

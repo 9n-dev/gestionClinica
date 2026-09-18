@@ -1,25 +1,27 @@
-// Datos de la clínica. Todo es ficticio (dirección, teléfono, NIF y colegiados).
-export const CLINICA = {
-  nombre: "Podología Serrano",
-  razonSocial: "Podología Serrano, S.L.P.",
-  nif: "B-00000000",
-  direccion: "Calle Madrid, 48, local 2",
-  cp: "28901",
-  ciudad: "Getafe",
-  provincia: "Madrid",
-  telefono: "910 000 000",
-  telefonoHref: "tel:+34910000000",
-  email: "hola@podologiaserrano.es",
-  horario: [
-    { dias: "Lunes a viernes", horas: "9:00 – 14:00 y 16:00 – 20:00" },
-    { dias: "Sábados", horas: "9:00 – 13:00 (Dra. Serrano)" },
-    { dias: "Domingos y festivos", horas: "Cerrado" },
-  ],
-} as const;
+// Datos de la clínica. Salen de variables de entorno (CLINICA_*); sin ellas, los de la clínica ficticia de la demo
+// (dirección, teléfono, NIF y colegiados inventados). El horario no está aquí: se calcula en horario.ts.
+// Ojo: solo para código de servidor. En un componente de cliente process.env.CLINICA_* no existe y saldría la demo.
+const env = (clave: string, demo: string) => process.env[clave]?.trim() || demo;
 
-// Mismo horario que arriba, en el formato de schema.org. Coordenadas aproximadas (la dirección es ficticia).
-export const HORARIO_SCHEMA = ["Mo-Fr 09:00-14:00", "Mo-Fr 16:00-20:00", "Sa 09:00-13:00"];
-export const COORDENADAS = { latitude: 40.3083, longitude: -3.7327 };
+/** MODO_DEMO=1: contraseñas a la vista en el login, reinicio diario de los datos, avisos de demo. Sin definir, instalación real. */
+export const MODO_DEMO = !!process.env.MODO_DEMO?.trim();
+
+const telefono = env("CLINICA_TELEFONO", "910 000 000");
+export const CLINICA = {
+  nombre: env("CLINICA_NOMBRE", "Podología Serrano"),
+  razonSocial: env("CLINICA_RAZON_SOCIAL", "Podología Serrano, S.L.P."),
+  nif: env("CLINICA_NIF", "B-00000000"),
+  direccion: env("CLINICA_DIRECCION", "Calle Madrid, 48, local 2"),
+  cp: env("CLINICA_CP", "28901"),
+  ciudad: env("CLINICA_CIUDAD", "Getafe"),
+  provincia: env("CLINICA_PROVINCIA", "Madrid"),
+  telefono,
+  telefonoHref: `tel:+34${telefono.replace(/\D/g, "")}`,
+  email: env("CLINICA_EMAIL", "hola@podologiaserrano.es"),
+};
+
+// Para el JSON-LD. Las de la demo son aproximadas: la dirección es ficticia.
+export const COORDENADAS = { latitude: Number(env("CLINICA_LAT", "40.3083")), longitude: Number(env("CLINICA_LON", "-3.7327")) };
 
 export const URL_BASE = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 

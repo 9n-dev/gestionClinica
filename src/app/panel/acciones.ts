@@ -128,23 +128,43 @@ export async function borrarBloqueo(id: string) {
 
 // ---------- Configuración (solo ADMIN) ----------
 
-export async function guardarServicio(id: string, _: Estado, fd: FormData): Promise<Estado> {
+/** "Estudio de la pisada" → "estudio-de-la-pisada"; si ya existe, "-2", "-3"… El slug va en las URL de /reservar y no cambia al renombrar. */
+async function slugLibre(nombre: string, existe: (slug: string) => Promise<unknown>) {
+  const base = normalizarNombre(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sin-nombre";
+  for (let n = 1; ; n++) {
+    const slug = n === 1 ? base : `${base}-${n}`;
+    if (slug !== "cualquiera" && !(await existe(slug))) return slug; // "cualquiera" es el «me da igual» de la reserva
+  }
+}
+
+/** id = null: alta. */
+export async function guardarServicio(id: string | null, _: Estado, fd: FormData): Promise<Estado> {
   await requerirAdmin();
   const datos = esquemaServicio.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
   const { precio, ...resto } = datos.data;
-  await prisma.servicio.update({ where: { id }, data: { ...resto, precioCent: Math.round(precio * 100) } });
+  const data = { ...resto, precioCent: Math.round(precio * 100) };
+  if (id) await prisma.servicio.update({ where: { id }, data });
+  else {
+    const slug = await slugLibre(data.nombre, (slug) => prisma.servicio.findUnique({ where: { slug } }));
+    await prisma.servicio.create({ data: { ...data, slug, orden: await prisma.servicio.count() } });
+  }
   revalidatePath("/", "layout");
-  return { ok: "Guardado." };
+  return { ok: id ? "Guardado." : "Servicio creado." };
 }
 
-export async function guardarProfesional(id: string, _: Estado, fd: FormData): Promise<Estado> {
+/** id = null: alta. Nace sin horario: hasta que se le ponga, no ofrece huecos. */
+export async function guardarProfesional(id: string | null, _: Estado, fd: FormData): Promise<Estado> {
   await requerirAdmin();
   const datos = esquemaProfesional.safeParse(Object.fromEntries(fd));
   if (!datos.success) return { error: primerError(datos.error) };
-  await prisma.profesional.update({ where: { id }, data: datos.data });
+  if (id) await prisma.profesional.update({ where: { id }, data: datos.data });
+  else {
+    const slug = await slugLibre(datos.data.nombre, (slug) => prisma.profesional.findUnique({ where: { slug } }));
+    await prisma.profesional.create({ data: { ...datos.data, slug, orden: await prisma.profesional.count() } });
+  }
   revalidatePath("/", "layout");
-  return { ok: "Guardado." };
+  return { ok: id ? "Guardado." : "Profesional creado. Ponle horario aquí abajo para que admita citas." };
 }
 
 const aMinutos = (hhmm: string) => {

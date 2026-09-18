@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Mapa } from "@/components/Mapa";
-import { CLINICA } from "@/lib/clinica";
+import { CLINICA, DIRECCION_COMPLETA } from "@/lib/clinica";
+import { horarioPublico } from "@/lib/horario";
 
 export const metadata: Metadata = {
   title: "Contacto y horario",
-  description: "Dirección, teléfono, horario y cómo llegar a Podología Serrano, en el centro de Getafe.",
+  description: `Dirección, teléfono, horario y cómo llegar a ${CLINICA.nombre}, en ${CLINICA.ciudad}.`,
 };
 
-export default function Contacto() {
+export default async function Contacto() {
   return (
     <div className="contenedor py-12">
       <h1 className="text-5xl font-extrabold">Contacto y horario</h1>
@@ -31,7 +32,7 @@ export default function Contacto() {
             <h2 id="t-horario" className="text-2xl font-bold">Horario</h2>
             <table className="mt-2 w-full max-w-md">
               <tbody>
-                {CLINICA.horario.map((h) => (
+                {(await horarioPublico()).texto.map((h) => (
                   <tr key={h.dias} className="border-b border-linea">
                     <th scope="row" className="py-2 pr-4 text-left align-top">{h.dias}</th>
                     <td className="py-2">{h.horas}</td>
@@ -44,7 +45,7 @@ export default function Contacto() {
         </div>
         <section aria-labelledby="t-mapa">
           <h2 id="t-mapa" className="sr-only">Mapa</h2>
-          <Mapa />
+          <Mapa direccion={DIRECCION_COMPLETA} />
         </section>
       </div>
     </div>

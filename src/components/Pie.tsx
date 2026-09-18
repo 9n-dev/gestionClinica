@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CLINICA } from "@/lib/clinica";
+import { horarioPublico } from "@/lib/horario";
 import { BotonConfigurarCookies } from "./BannerCookies";
 
 const enlace = "underline underline-offset-4 hover:text-ambar";
 
-export function Pie() {
+export async function Pie() {
+  const horario = (await horarioPublico()).texto;
   return (
     <footer className="mt-24 bg-tinta pb-28 pt-12 text-white md:pb-12">
       <div className="contenedor grid gap-10 md:grid-cols-3">
@@ -20,7 +22,7 @@ export function Pie() {
         <div>
           <h2 className="text-lg font-bold">Horario</h2>
           <dl className="mt-3 space-y-2">
-            {CLINICA.horario.map((h) => (
+            {horario.map((h) => (
               <div key={h.dias}>
                 <dt className="font-bold">{h.dias}</dt>
                 <dd className="text-white/85">{h.horas}</dd>

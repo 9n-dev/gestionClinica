@@ -20,6 +20,10 @@ export default async function Configuracion() {
         <h2 id="t-servicios" className="text-2xl font-bold">Servicios y precios</h2>
         <div className="mt-4 space-y-4">
           {servicios.map((s) => <FormularioServicio key={s.id} s={s} />)}
+          <details className="rounded-lg border border-dashed border-pizarra p-4">
+            <summary className="cursor-pointer font-bold">Añadir un servicio</summary>
+            <div className="mt-4"><FormularioServicio /></div>
+          </details>
         </div>
       </section>
 
@@ -35,6 +39,13 @@ export default async function Configuracion() {
           </div>
         </section>
       ))}
+
+      <section aria-labelledby="t-nuevo-pro" className="mt-10">
+        <details className="rounded-lg border border-dashed border-pizarra p-4">
+          <summary id="t-nuevo-pro" className="cursor-pointer font-bold">Añadir un profesional</summary>
+          <div className="mt-4 max-w-xl"><FormularioProfesional /></div>
+        </details>
+      </section>
     </div>
   );
 }

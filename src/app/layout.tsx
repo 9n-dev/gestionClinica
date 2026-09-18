@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible_Next, Bricolage_Grotesque } from "next/font/google";
-import { CLINICA, URL_BASE } from "@/lib/clinica";
+import { CLINICA, MODO_DEMO, URL_BASE } from "@/lib/clinica";
 import "./globals.css";
 
 // next/font aloja las fuentes en el propio dominio: no hay peticiones a Google (RGPD).
@@ -9,8 +9,8 @@ const cuerpo = Atkinson_Hyperlegible_Next({ variable: "--font-cuerpo", subsets: 
 
 export const metadata: Metadata = {
   metadataBase: new URL(URL_BASE()),
-  title: { default: `${CLINICA.nombre} · Clínica podológica en Getafe`, template: `%s · ${CLINICA.nombre}` },
-  description: "Clínica de podología en Getafe (Madrid): quiropodia, estudio de la pisada y plantillas a medida. Pide cita online en un minuto.",
+  title: { default: `${CLINICA.nombre} · Clínica podológica en ${CLINICA.ciudad}`, template: `%s · ${CLINICA.nombre}` },
+  description: `Clínica de podología en ${CLINICA.ciudad} (${CLINICA.provincia}): quiropodia, estudio de la pisada y plantillas a medida. Pide cita online en un minuto.`,
   openGraph: { locale: "es_ES", type: "website", siteName: CLINICA.nombre },
 };
 
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#contenido" className="btn btn-primario sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50">
           Saltar al contenido
         </a>
-        <BannerDemo />
+        {MODO_DEMO && <BannerDemo />}
         {children}
       </body>
     </html>

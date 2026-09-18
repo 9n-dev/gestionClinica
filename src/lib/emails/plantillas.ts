@@ -1,4 +1,4 @@
-import { CLINICA, DIRECCION_COMPLETA, URL_BASE } from "../clinica";
+import { CLINICA, DIRECCION_COMPLETA, MODO_DEMO, URL_BASE } from "../clinica";
 import { formatoFechaLarga, formatoHora, formatoPrecio } from "../fechas";
 
 export type CitaCompleta = {
@@ -25,7 +25,7 @@ function marco(titulo: string, cuerpo: string, motivo = "se ha gestionado una ci
 ${cuerpo}
 </div>
 <p style="font-size:13px;color:#55617a;margin:16px 0 0">${CLINICA.nombre} · ${DIRECCION_COMPLETA} · ${CLINICA.telefono}<br>
-Recibes este mensaje porque ${motivo}. Demo con datos ficticios.</p>
+Recibes este mensaje porque ${motivo}.${MODO_DEMO ? " Demo con datos ficticios." : ""}</p>
 </div></body></html>`;
 }
 

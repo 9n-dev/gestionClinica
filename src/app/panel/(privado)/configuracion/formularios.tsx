@@ -10,33 +10,34 @@ function Resultado({ estado }: { estado: Estado }) {
 
 type Servicio = { id: string; nombre: string; descripcion: string; duracionMin: number; precioCent: number; activo: boolean };
 
-export function FormularioServicio({ s }: { s: Servicio }) {
-  const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarServicio.bind(null, s.id), {});
-  const id = (c: string) => `${c}-${s.id}`;
+/** Sin `s`, alta de un servicio nuevo. */
+export function FormularioServicio({ s }: { s?: Servicio }) {
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarServicio.bind(null, s?.id ?? null), {});
+  const id = (c: string) => `${c}-${s?.id ?? "nuevo-servicio"}`;
   return (
     <form action={accion} className="grid gap-3 rounded-lg border border-linea bg-white p-5 sm:grid-cols-[1fr_7rem_7rem]">
       <div className="sm:col-span-3">
         <label htmlFor={id("nombre")} className="etiqueta">Nombre</label>
-        <input id={id("nombre")} name="nombre" defaultValue={s.nombre} required maxLength={80} className="campo" />
+        <input id={id("nombre")} name="nombre" defaultValue={s?.nombre} required maxLength={80} className="campo" />
       </div>
       <div className="sm:col-span-3">
         <label htmlFor={id("descripcion")} className="etiqueta">Descripción (se muestra en la web)</label>
-        <textarea id={id("descripcion")} name="descripcion" defaultValue={s.descripcion} required rows={2} maxLength={500} className="campo" />
+        <textarea id={id("descripcion")} name="descripcion" defaultValue={s?.descripcion} required rows={2} maxLength={500} className="campo" />
       </div>
       <div className="flex items-center gap-2 self-end">
-        <input id={id("activo")} name="activo" type="checkbox" defaultChecked={s.activo} className="size-5 accent-cobalto" />
+        <input id={id("activo")} name="activo" type="checkbox" defaultChecked={s?.activo ?? true} className="size-5 accent-cobalto" />
         <label htmlFor={id("activo")}>Se ofrece en la web</label>
       </div>
       <div>
         <label htmlFor={id("duracionMin")} className="etiqueta">Minutos</label>
-        <input id={id("duracionMin")} name="duracionMin" type="number" min={15} max={240} step={15} defaultValue={s.duracionMin} required className="campo" />
+        <input id={id("duracionMin")} name="duracionMin" type="number" min={15} max={240} step={15} defaultValue={s?.duracionMin} required className="campo" />
       </div>
       <div>
         <label htmlFor={id("precio")} className="etiqueta">Precio (€)</label>
-        <input id={id("precio")} name="precio" type="number" min={0} max={9999} step={0.5} defaultValue={s.precioCent / 100} required className="campo" />
+        <input id={id("precio")} name="precio" type="number" min={0} max={9999} step={0.5} defaultValue={s && s.precioCent / 100} required className="campo" />
       </div>
       <div className="flex items-center gap-4 sm:col-span-3">
-        <button className="btn btn-secundario" disabled={enviando}>{enviando ? "Guardando…" : "Guardar"}</button>
+        <button className="btn btn-secundario" disabled={enviando}>{enviando ? "Guardando…" : s ? "Guardar" : "Añadir servicio"}</button>
         <Resultado estado={estado} />
       </div>
     </form>
@@ -47,29 +48,30 @@ type Profesional = { id: string; nombre: string; titulo: string; bio: string; ac
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const hhmm = (min?: number) => (min === undefined ? "" : minutosAHora(min).padStart(5, "0"));
 
-export function FormularioProfesional({ p }: { p: Profesional }) {
-  const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarProfesional.bind(null, p.id), {});
-  const id = (c: string) => `${c}-${p.id}`;
+/** Sin `p`, alta de un profesional nuevo. */
+export function FormularioProfesional({ p }: { p?: Omit<Profesional, "horarios"> }) {
+  const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarProfesional.bind(null, p?.id ?? null), {});
+  const id = (c: string) => `${c}-${p?.id ?? "nuevo-profesional"}`;
   return (
     <form action={accion} className="grid gap-3 rounded-lg border border-linea bg-white p-5">
       <div>
         <label htmlFor={id("nombre")} className="etiqueta">Nombre</label>
-        <input id={id("nombre")} name="nombre" defaultValue={p.nombre} required maxLength={80} className="campo" />
+        <input id={id("nombre")} name="nombre" defaultValue={p?.nombre} required maxLength={80} className="campo" />
       </div>
       <div>
         <label htmlFor={id("titulo")} className="etiqueta">Título y colegiado</label>
-        <input id={id("titulo")} name="titulo" defaultValue={p.titulo} required maxLength={160} className="campo" />
+        <input id={id("titulo")} name="titulo" defaultValue={p?.titulo} required maxLength={160} className="campo" />
       </div>
       <div>
         <label htmlFor={id("bio")} className="etiqueta">Presentación (página de equipo)</label>
-        <textarea id={id("bio")} name="bio" defaultValue={p.bio} required rows={4} maxLength={1000} className="campo" />
+        <textarea id={id("bio")} name="bio" defaultValue={p?.bio} required rows={4} maxLength={1000} className="campo" />
       </div>
       <div className="flex items-center gap-2">
-        <input id={id("activo")} name="activo" type="checkbox" defaultChecked={p.activo} className="size-5 accent-cobalto" />
+        <input id={id("activo")} name="activo" type="checkbox" defaultChecked={p?.activo ?? true} className="size-5 accent-cobalto" />
         <label htmlFor={id("activo")}>Activo: aparece en la web y admite citas</label>
       </div>
       <div className="flex items-center gap-4">
-        <button className="btn btn-secundario" disabled={enviando}>{enviando ? "Guardando…" : "Guardar"}</button>
+        <button className="btn btn-secundario" disabled={enviando}>{enviando ? "Guardando…" : p ? "Guardar" : "Añadir profesional"}</button>
         <Resultado estado={estado} />
       </div>
     </form>

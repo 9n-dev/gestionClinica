@@ -97,7 +97,7 @@ export default async function Reservar({ searchParams }: { searchParams: Promise
           <>
             <h2 id="t-paso" className="text-3xl font-bold">Tus datos de contacto</h2>
             <p className="mb-6 mt-2 text-pizarra">Solo lo imprescindible para gestionar la cita. Todos los campos son obligatorios.</p>
-            <FormularioPaciente servicio={servicio.slug} profesional={slugPro} dia={dia} hora={hora} urlHoras={volverA[2]} />
+            <FormularioPaciente servicio={servicio.slug} profesional={slugPro} dia={dia} hora={hora} urlHoras={volverA[2]} responsable={CLINICA.razonSocial} />
           </>
         )}
       </section>
