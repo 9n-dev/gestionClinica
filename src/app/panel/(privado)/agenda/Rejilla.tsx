@@ -28,14 +28,28 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
   const [arrastrando, setArrastrando] = useState<string | null>(null);
   const [destino, setDestino] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  // En pantallas táctiles no hay arrastrar y soltar: con este modo se toca la cita y luego la hora nueva.
+  // Sirve igual con ratón y con teclado (los destinos son botones).
+  const [modoMover, setModoMover] = useState(false);
 
   const dias = columnas.filter((_, i) => i % nPros === 0);
   const claveCelda = (col: number, min: number) => `${col}:${min}`;
+
+  // Destinos que se ofrecen al tocar: la cita cabe entera en un tramo de trabajo y no pisa otra cita ni un bloqueo.
+  // Es una ayuda visual; quien decide si el hueco está libre sigue siendo el servidor.
+  const elegida = modoMover ? citas.find((c) => c.id === arrastrando) : undefined;
+  const libre = (col: number, min: number) => {
+    if (!elegida) return false;
+    const fin = min + elegida.hasta - elegida.desde;
+    const pisa = (x: { col: number; desde: number; hasta: number }) => x.col === col && x.desde < fin && x.hasta > min;
+    return tramos.some((t) => t.col === col && t.desde <= min && fin <= t.hasta) && !bloqueos.some(pisa) && !citas.some((c) => c.id !== elegida.id && pisa(c)) && !(col === elegida.col && min === elegida.desde);
+  };
 
   function soltar(col: number, min: number) {
     const cita = citas.find((c) => c.id === arrastrando);
     setDestino(null);
     setArrastrando(null);
+    setModoMover(false);
     if (!cita) return;
     const c = columnas[col];
     // El instante destino se calcula desde el inicio de la cita en UTC: mismo día → solo cambian los minutos.
@@ -50,6 +64,14 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
 
   return (
     <>
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button type="button" aria-pressed={modoMover} onClick={() => { setModoMover(!modoMover); setArrastrando(null); setMensaje(null); }} className={`btn ${modoMover ? "btn-primario" : "btn-secundario"}`}>
+          {modoMover ? "Cancelar el cambio" : "Mover una cita"}
+        </button>
+        <p className="text-pizarra">
+          {!modoMover ? "Con ratón también puedes arrastrarla." : elegida ? `Ahora toca la hora nueva para ${elegida.nombre}. En azul, los huecos donde cabe.` : "Toca la cita que quieres mover."}
+        </p>
+      </div>
       <p role="status" aria-live="polite" className={`min-h-6 font-bold ${mensaje?.startsWith("No") ? "text-error" : "text-exito"}`}>{mensaje}</p>
       <div className={`relative overflow-x-auto rounded-lg border border-linea bg-[#e9eef5] ${pendiente ? "opacity-70" : ""}`}>
         <div
@@ -90,8 +112,25 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
             />
           ))}
 
-          {/* Celdas de destino: solo existen mientras se arrastra una cita */}
-          {arrastrando &&
+          {/* Destinos al tocar: un botón por cada hueco donde cabe la cita elegida */}
+          {elegida &&
+            columnas.flatMap((c, col) =>
+              Array.from({ length: FILAS }, (_, f) => DESDE + f * FILA)
+                .filter((min) => libre(col, min))
+                .map((min) => (
+                  <button
+                    key={claveCelda(col, min)}
+                    type="button"
+                    onClick={() => soltar(col, min)}
+                    aria-label={`Mover a las ${minutosAHora(min)}, ${c.pro.nombre}, ${c.diaTexto}`}
+                    style={{ gridColumn: col + 2, gridRow: fila(min) }}
+                    className="z-30 cursor-pointer border-t border-white bg-cobalto/20 hover:bg-cobalto/50 focus-visible:bg-cobalto/50"
+                  />
+                )),
+            )}
+
+          {/* Celdas de destino al arrastrar: solo existen mientras se arrastra una cita */}
+          {arrastrando && !modoMover &&
             columnas.flatMap((c, col) =>
               Array.from({ length: FILAS }, (_, f) => {
                 const min = DESDE + f * FILA;
@@ -123,12 +162,14 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
               <Link
                 key={c.id}
                 href={`/panel/citas/${c.id}`}
-                draggable={movible}
+                draggable={movible && !modoMover}
+                onClick={modoMover ? (e) => { e.preventDefault(); if (movible) { setArrastrando(c.id); setMensaje(null); } } : undefined}
+                aria-pressed={modoMover && movible ? arrastrando === c.id : undefined}
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); setArrastrando(c.id); setMensaje(null); }}
                 onDragEnd={() => { setArrastrando(null); setDestino(null); }}
                 style={{ gridColumn: c.col + 2, gridRow: `${fila(c.desde)} / ${fila(c.hasta)}` }}
-                className={`z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 leading-tight text-tinta no-underline hover:brightness-95 ${c.tono} ${movible ? "cursor-grab active:cursor-grabbing" : ""} ${arrastrando === c.id ? "opacity-40" : ""} ${arrastrando ? "pointer-events-none" : ""}`}
-                title={movible ? "Arrastra para cambiar la hora o el profesional" : undefined}
+                className={`z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 leading-tight text-tinta no-underline hover:brightness-95 ${c.tono} ${movible ? "cursor-grab active:cursor-grabbing" : ""} ${arrastrando === c.id ? (modoMover ? "outline-3 outline-cobalto" : "opacity-40") : ""} ${arrastrando && !modoMover ? "pointer-events-none" : ""} ${modoMover && !movible ? "opacity-50" : ""}`}
+                title={movible && !modoMover ? "Arrastra para cambiar la hora o el profesional" : undefined}
               >
                 <span className="block truncate"><span className="font-bold tabular-nums">{c.hora}</span> {c.nombre}</span>
                 <span className="block truncate text-pizarra">{c.servicio}{c.estado === "ATENDIDA" && ", atendida"}{c.estado === "NO_PRESENTADA" && ", no se presentó"}</span>

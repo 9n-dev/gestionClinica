@@ -19,7 +19,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
 - **Emails** de confirmación, aviso a la clínica, cancelación y recordatorio, con enlace de cancelación por token.
 - **Recordatorio al móvil** por WhatsApp y, si no llega, por SMS (Twilio). Llega también a quien reservó por teléfono y no dio email.
 - **Panel en `/panel`**:
-  - Agenda por día y semana, filtrable por profesional. **Arrastra una cita** para cambiarla de hora o de profesional; pulsa en un hueco libre para crear una.
+  - Agenda por día y semana, filtrable por profesional. **Arrastra una cita** para cambiarla de hora o de profesional, o en una tablet tócala y toca la hora nueva; pulsa en un hueco libre para crear una.
   - Crear citas desde el panel (teléfono, mostrador): sin antelación mínima y con email opcional.
   - Detalle de cita: cambiar hora (también sin ratón), marcar como atendida o «no se presentó», cancelar, notas internas.
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
@@ -181,7 +181,7 @@ Para probar un cron a mano:
 curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recordatorios
 ```
 
-**Arrastrar y soltar** usa la API nativa de HTML5, sin librerías; en pantallas táctiles no funciona, ahí se usa «Cambiar hora» en el detalle de la cita.
+**Arrastrar y soltar** usa la API nativa de HTML5, sin librerías, y esa API no existe en pantallas táctiles. Para la tablet de recepción está «Mover una cita»: se toca la cita y luego la hora nueva, y solo se ofrecen los huecos donde cabe. Los destinos son botones, así que el mismo modo sirve con teclado.
 
 **Cambios de esquema:** en local, `npx prisma migrate dev` (siempre trabaja contra `dev.db`) y después `npx prisma generate`. En producción no hay que hacer nada: `npm run build` empieza por `npm run migrar`, que aplica a la base de datos de `DATABASE_URL` las migraciones que le falten, así que cada despliegue la deja al día. `prisma migrate deploy` no habla con Turso; por eso hay un ejecutor propio en `src/lib/migraciones.ts`:
 
