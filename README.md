@@ -2,7 +2,28 @@
 
 [![CI](https://github.com/9n-dev/gestionClinica/actions/workflows/ci.yml/badge.svg)](https://github.com/9n-dev/gestionClinica/actions/workflows/ci.yml)
 
-Demo de portfolio: web pública + reserva de citas online + panel de agenda para una clínica de podología ficticia de Getafe (Madrid). Todos los datos (clínica, profesionales, pacientes, NIF, teléfono, dirección) son inventados.
+Web pública, reserva de citas online y panel de gestión para una clínica pequeña, hecho como un producto que se puede instalar y no como una maqueta. La clínica de la demo (Podología Serrano, Getafe) es ficticia: nombres, pacientes, NIF, teléfono y dirección son inventados.
+
+![Agenda semanal del panel, con las citas de cada profesional en su columna](docs/capturas/panel-agenda-semana.png)
+
+**En pocas líneas:**
+
+- **El paciente** reserva en cuatro pasos sin registrarse, recibe confirmación y recordatorio (email, y WhatsApp con SMS de reserva) y cancela desde un enlace.
+- **Recepción** lleva la agenda arrastrando citas (o tocándolas, en una tablet), las fichas de pacientes, la lista de espera, los cobros y la caja del día.
+- **Administración** configura servicios, profesionales y horarios, da de alta al equipo, ve estadísticas e ingresos, e importa la cartera de pacientes desde Excel.
+- **Dos citas a la misma hora son imposibles**, y lo garantiza la base de datos, no una comprobación previa.
+- **Datos de salud tratados como tales**: registro de quién abre cada ficha, descarga y supresión de los datos de un paciente, plazos de conservación automáticos, permisos por profesional.
+- **Instalable**: una variable separa la demo de una clínica real, las migraciones se aplican solas en cada despliegue y el primer administrador sale de un comando.
+- **Probado**: tests de la lógica contra SQLite y contra un servidor libSQL por HTTP, y 18 pruebas de extremo a extremo en un navegador contra el build de producción, incluida una auditoría de accesibilidad (axe, WCAG 2.1 AA) de todas las pantallas. Todo corre en cada push.
+- **Sin librerías de interfaz ni de gráficos**: HTML semántico, Server Components, Server Actions y CSS.
+
+| | |
+| --- | --- |
+| ![Portada de la web pública](docs/capturas/web-inicio.png) | ![Reserva online: elegir día y hora](docs/capturas/web-reservar-3-dia-y-hora.png) |
+| ![Ficha de un paciente con su historial](docs/capturas/panel-ficha-paciente.png) | ![Estadísticas: ingresos, ocupación y ausencias](docs/capturas/panel-estadisticas.png) |
+| ![Caja del día por forma de pago](docs/capturas/panel-caja.png) | ![La web, la reserva y la agenda en un móvil](docs/capturas/movil.png) |
+
+Las capturas se regeneran con `node scripts/capturas.mjs` (también sirve para repasar todas las pantallas de un vistazo).
 
 **Acceso al panel de la demo** (en `/panel`), todos con contraseña `demo1234`:
 - `demo@podologiaserrano.es`: recepción, ve toda la agenda.
@@ -29,6 +50,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - Bloqueo de horas (comidas, vacaciones) con aviso si hay citas dentro, y los **festivos nacionales** del año con un botón (Viernes Santo incluido, calculado); los autonómicos y locales se añaden a mano.
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
   - **Estadísticas** (solo administración): ingresos, citas atendidas, ocupación de la agenda y ausencias del mes, comparados con el anterior; tendencia de seis meses, reparto por servicio y por profesional.
+  - **Menú** con lo de todos los días a la vista, lo esporádico en «Gestión» y la página actual marcada; en móvil y tablet cabe en una fila.
   - **Usuarios y roles** (solo administración): alta, cambio de rol y baja. Nadie escribe la contraseña de otro: el usuario nuevo recibe un enlace de un solo uso para elegirla, y el mismo mecanismo sirve para «he olvidado mi contraseña».
   - Registro de todos los emails enviados.
 - **Protección de datos**: registro de actividad (quién abrió o cambió qué; abrir una ficha también cuenta), descarga de los datos de un paciente en JSON (derecho de acceso) y eliminación de sus datos (derecho de supresión).
@@ -60,7 +82,7 @@ npm run dev          # http://localhost:3000
 | `npm run crear-admin -- email "Nombre"` | Crea (o recupera) un administrador e imprime un enlace de un solo uso para que elija su contraseña |
 | `npm run seed` | **Solo con `MODO_DEMO=1`.** Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
 | `npm test` | Tests de la lógica: disponibilidad, horario público, minutos disponibles para la ocupación y lectura del CSV de pacientes (puros) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad y supresión de pacientes, enlaces de acceso, límite de intentos, plazos de conservación, migración de una base de datos antigua con datos, y mensajes al móvil con la API de Twilio simulada |
-| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login, descarga y supresión de datos, recordatorios, mover una cita en pantalla táctil, estadísticas e importación de pacientes) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
+| `npm run test:e2e` | Playwright contra el build de producción, con dos servidores: uno en modo demo recién sembrado (reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, bloqueo del login, accesibilidad con axe en todas las pantallas, descarga y supresión de datos, recordatorios, mover una cita en pantalla táctil, estadísticas e importación de pacientes) y otro como instalación real con la base de datos vacía (`crear-admin` → profesional, horario y servicio → primera cita reservable, sin rastro de la demo). La primera vez: `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 
 ## Variables de entorno
@@ -118,7 +140,8 @@ src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS
 src/app/api/resend/webhook/   webhook: rebotes y quejas de spam
 src/app/api/salud/            para el monitor de disponibilidad
 src/instrumentation.ts        errores del servidor → log y email de alerta
-e2e/                          pruebas de extremo a extremo (Playwright)
+e2e/                          pruebas de extremo a extremo (Playwright), con auditoría de accesibilidad (axe)
+scripts/capturas.mjs          capturas de todas las pantallas
 .github/workflows/ci.yml      lint, tests y e2e en cada push
 .github/dependabot.yml        actualizaciones semanales agrupadas
 next.config.ts                cabeceras de seguridad (CSP, HSTS…)

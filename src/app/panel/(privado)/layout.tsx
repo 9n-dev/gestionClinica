@@ -29,7 +29,7 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
     <>
       <header className="bg-tinta text-white">
         <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 sm:px-6">
-          <p className="w-full font-display text-lg font-bold md:w-auto">Panel de {CLINICA.nombre}</p>
+          <p className="w-full font-display text-lg font-bold sm:w-auto">Panel de {CLINICA.nombre}</p>
           <Menu enlaces={ENLACES} gestion={gestion} usuario={sesion.user.nombre} />
         </div>
       </header>

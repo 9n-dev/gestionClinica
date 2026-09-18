@@ -21,7 +21,13 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
   ]);
   const profesional = profesionales.find((p) => p.slug === (sp.profesional ?? sesion.user.profesionalSlug)) ?? profesionales[0];
   const servicio = servicios.find((s) => s.slug === sp.servicio) ?? servicios[0];
-  const dia = esDia(sp.dia) ? sp.dia : hoy();
+  // Sin día elegido: el primero de las dos próximas semanas con algún hueco. Abrir en «hoy» un viernes a las ocho de la
+  // tarde es recibir a quien atiende el teléfono con un «no hay huecos».
+  let dia = esDia(sp.dia) ? sp.dia : hoy();
+  if (!esDia(sp.dia) && profesional && servicio) {
+    const proximos = await huecosEnRango({ desde: dia, dias: 14, servicioId: servicio.id, duracionMin: servicio.duracionMin, profesionalSlug: profesional.slug, desdePanel: true });
+    dia = [...proximos].find(([, hs]) => hs.length)?.[0] ?? dia;
+  }
 
   const huecos = profesional && servicio ? (await huecosEnRango({ desde: dia, dias: 1, servicioId: servicio.id, duracionMin: servicio.duracionMin, profesionalSlug: profesional.slug, desdePanel: true })).get(dia) ?? [] : [];
   const horas = huecos.map((h) => formatoHora(h.inicio));

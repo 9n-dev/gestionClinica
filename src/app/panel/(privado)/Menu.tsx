@@ -34,14 +34,14 @@ export function Menu({ enlaces, gestion, usuario }: { enlaces: Enlace[]; gestion
     <li key={e.href}><Link href={e.href} aria-current={estaEn(e.href) ? "page" : undefined} className={`${clase} ${estaEn(e.href) ? claseActual : ""}`}>{e.texto}</Link></li>
   );
   return (
-    <div ref={nav} className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 md:w-auto md:flex-1 md:gap-x-6">
-      <nav aria-label="Panel" className="md:flex-1">
-        {/* Móvil: todo en un desplegable, para que la cabecera no se coma media pantalla */}
-        <details key={`movil${ruta}`} className="relative md:hidden">
+    <div ref={nav} className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 sm:w-auto sm:flex-1 sm:justify-end sm:gap-x-4 xl:justify-between xl:gap-x-6">
+      <nav aria-label="Panel" className="xl:flex-1">
+        {/* Móvil y tablet: todo en un desplegable. En línea, las entradas solo caben a partir de 1280 px; más estrecho, se partían en tres filas. */}
+        <details key={`movil${ruta}`} className="relative xl:hidden">
           <summary className={`${item} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>Menú{flecha}</summary>
           <ul className={`${panel} left-0 w-[calc(100vw-2rem)] max-w-sm`}>{[...enlaces, ...gestion].map((e) => enlace(e, opcion, "bg-cielo"))}</ul>
         </details>
-        <ul className="hidden flex-wrap gap-1 md:flex">
+        <ul className="hidden flex-wrap gap-1 xl:flex">
           {enlaces.map((e) => enlace(e, item, actual))}
           {/* Un menú con una sola entrada es un enlace con un clic de más */}
           {gestion.length === 1 && enlace(gestion[0], item, actual)}
@@ -60,8 +60,8 @@ export function Menu({ enlaces, gestion, usuario }: { enlaces: Enlace[]; gestion
       <details key={`cuenta${ruta}`} className="relative">
         <summary className={`${item} cursor-pointer list-none [&::-webkit-details-marker]:hidden ${estaEn("/panel/cuenta") ? actual : ""}`}>
           <span className="sr-only">Cuenta de {usuario}</span>
-          <span aria-hidden="true" className="md:hidden">Cuenta</span>
-          <span aria-hidden="true" className="hidden md:inline">{usuario}</span>
+          <span aria-hidden="true" className="2xl:hidden">Cuenta</span>
+          <span aria-hidden="true" className="hidden 2xl:inline">{usuario}</span>
           {flecha}
         </summary>
         <ul className={`${panel} right-0`}>
