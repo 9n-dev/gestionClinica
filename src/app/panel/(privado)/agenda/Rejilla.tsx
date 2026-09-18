@@ -158,21 +158,34 @@ export function Rejilla({ columnas, nPros, vista, tramos, bloqueos, citas, filtr
           {/* Citas: las confirmadas se pueden arrastrar */}
           {citas.map((c) => {
             const movible = c.movible; // confirmada y de alguien a quien este usuario puede gestionar
+            const estilo = { gridColumn: c.col + 2, gridRow: `${fila(c.desde)} / ${fila(c.hasta)}` };
+            const clase = `z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 text-left leading-tight text-tinta no-underline hover:brightness-95 ${c.tono}`;
+            const contenido = (
+              <>
+                <span className="block truncate"><span className="font-bold tabular-nums">{c.hora}</span> {c.nombre}</span>
+                <span className="block truncate text-pizarra">{c.servicio}{c.estado === "ATENDIDA" && ", atendida"}{c.estado === "NO_PRESENTADA" && ", no se presentó"}</span>
+              </>
+            );
+            // En el modo de mover, una cita no lleva a su detalle: se elige. Es un botón con estado, no un enlace.
+            if (modoMover)
+              return (
+                <button key={c.id} type="button" disabled={!movible} aria-pressed={arrastrando === c.id} onClick={() => { setArrastrando(c.id); setMensaje(null); }} style={estilo}
+                  className={`${clase} ${movible ? "cursor-pointer" : "opacity-50"} ${arrastrando === c.id ? "outline-3 outline-cobalto" : ""}`}>
+                  {contenido}
+                </button>
+              );
             return (
               <Link
                 key={c.id}
                 href={`/panel/citas/${c.id}`}
-                draggable={movible && !modoMover}
-                onClick={modoMover ? (e) => { e.preventDefault(); if (movible) { setArrastrando(c.id); setMensaje(null); } } : undefined}
-                aria-pressed={modoMover && movible ? arrastrando === c.id : undefined}
+                draggable={movible}
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c.id); setArrastrando(c.id); setMensaje(null); }}
                 onDragEnd={() => { setArrastrando(null); setDestino(null); }}
-                style={{ gridColumn: c.col + 2, gridRow: `${fila(c.desde)} / ${fila(c.hasta)}` }}
-                className={`z-20 mx-0.5 overflow-hidden rounded border-l-4 px-1.5 py-0.5 leading-tight text-tinta no-underline hover:brightness-95 ${c.tono} ${movible ? "cursor-grab active:cursor-grabbing" : ""} ${arrastrando === c.id ? (modoMover ? "outline-3 outline-cobalto" : "opacity-40") : ""} ${arrastrando && !modoMover ? "pointer-events-none" : ""} ${modoMover && !movible ? "opacity-50" : ""}`}
-                title={movible && !modoMover ? "Arrastra para cambiar la hora o el profesional" : undefined}
+                style={estilo}
+                className={`${clase} ${movible ? "cursor-grab active:cursor-grabbing" : ""} ${arrastrando === c.id ? "opacity-40" : ""} ${arrastrando ? "pointer-events-none" : ""}`}
+                title={movible ? "Arrastra para cambiar la hora o el profesional" : undefined}
               >
-                <span className="block truncate"><span className="font-bold tabular-nums">{c.hora}</span> {c.nombre}</span>
-                <span className="block truncate text-pizarra">{c.servicio}{c.estado === "ATENDIDA" && ", atendida"}{c.estado === "NO_PRESENTADA" && ", no se presentó"}</span>
+                {contenido}
               </Link>
             );
           })}

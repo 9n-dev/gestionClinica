@@ -16,7 +16,7 @@ test("en una tablet se mueve una cita tocándola y tocando la hora nueva", async
   const cita = page.getByRole("link", { name: new RegExp(paciente.nombre) });
   const horaAntes = (await cita.innerText()).slice(0, 5);
   await page.getByRole("button", { name: "Mover una cita" }).tap();
-  await cita.tap();
+  await page.getByRole("button", { name: new RegExp(paciente.nombre) }).tap(); // en este modo la cita es un botón: se elige, no se abre
   await expect(page).toHaveURL(/\/panel\/agenda/); // en este modo, tocar la cita no abre su detalle
 
   const destinos = page.getByRole("button", { name: /^Mover a las/ });
