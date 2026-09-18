@@ -37,6 +37,7 @@ export async function datosDePaciente(id: string) {
       inicio: c.inicio.toISOString(),
       fin: c.fin.toISOString(),
       servicio: c.servicio.nombre,
+      precioEuros: c.precioCent / 100,
       profesional: c.profesional.nombre,
       estado: c.estado,
       reservadaEl: c.creadaAt.toISOString(),

@@ -25,6 +25,7 @@ La misma base de código sirve para la demo y para una clínica real: lo decide 
   - **Pacientes**: se crean solos con la primera cita (por la web o desde el panel). Buscador sin acentos, ficha con historial, visitas, faltas y notas, y «nueva cita» con los datos ya puestos. Al abrir una cita se avisa si ese paciente ha faltado otras veces.
   - Bloqueo de horas (comidas, vacaciones, festivos) con aviso si hay citas dentro.
   - Configuración (solo administración): alta y edición de servicios y precios, de profesionales y del horario semanal de cada uno. El horario que se ve en la web y en el JSON-LD se calcula de ahí.
+  - **Estadísticas** (solo administración): ingresos, citas atendidas, ocupación de la agenda y ausencias del mes, comparados con el anterior; tendencia de seis meses, reparto por servicio y por profesional.
   - **Usuarios y roles** (solo administración): alta, cambio de rol y baja. Nadie escribe la contraseña de otro: el usuario nuevo recibe un enlace de un solo uso para elegirla, y el mismo mecanismo sirve para «he olvidado mi contraseña».
   - Registro de todos los emails enviados.
 - **Protección de datos**: registro de actividad (quién abrió o cambió qué; abrir una ficha también cuenta), descarga de los datos de un paciente en JSON (derecho de acceso) y eliminación de sus datos (derecho de supresión).
@@ -93,6 +94,8 @@ src/lib/auth.ts               Auth.js, usuario de la petición y roles
 src/lib/acceso.ts             enlaces de un solo uso para poner contraseña
 src/lib/limite.ts             límite de intentos
 src/lib/auditoria.ts          registro de actividad
+src/lib/retencion.ts          plazos de conservación (cron diario)
+src/lib/estadisticas.ts       números del panel de estadísticas
 src/lib/migraciones.ts        ejecutor de migraciones (build, seed y CLI)
 src/lib/clinica.ts            datos de la clínica (variables CLINICA_*) y MODO_DEMO
 src/lib/horario.ts            horario público, calculado de los horarios de los profesionales
@@ -123,6 +126,13 @@ Dos roles: `EQUIPO` (agenda, citas, pacientes, bloqueos, emails) y `ADMIN` (adem
 Las contraseñas solo las escribe su dueño. Dar de alta a alguien le envía un enlace de un solo uso (3 días); «he olvidado mi contraseña» envía otro (1 hora) y responde lo mismo exista o no el email. En la base de datos solo está el hash SHA-256 del token, y cuando el email sale de verdad por Resend el enlace se tacha del registro de `/panel/emails`. Sin Resend se deja, porque ese registro es la única forma de leer el email: así se puede probar en la demo.
 
 En la demo, los cuatro usuarios sembrados llevan `demo = true` y no se pueden cambiar, borrar ni recuperar, para que un visitante no deje fuera a los demás. Los usuarios que cree un visitante sí, y desaparecen con el reinicio nocturno.
+
+### Estadísticas
+
+- **Los ingresos no se mueven al cambiar tarifas**: cada cita guarda el precio que tenía el servicio al reservar (`Cita.precioCent`). Solo cuentan las citas atendidas.
+- **Ocupación** = minutos citados / minutos disponibles, donde lo disponible es el horario de cada profesional menos los bloqueos, contado por franjas de 15 minutos como la reserva (así dos bloqueos que se pisan no restan dos veces). Se calcula con el horario de hoy: si alguien cambió de horario a mitad de un mes pasado, la ocupación de ese mes es aproximada.
+- **Ausencias** = no presentadas sobre las que debían haberse atendido; las canceladas a tiempo van aparte, porque liberaron el hueco.
+- Los gráficos son HTML y CSS, sin librería: una sola serie en el cobalto del sitio con el mes elegido destacado sobre gris, cifra solo en el mes elegido y en el mejor, burbuja al pasar el ratón o con el foco del teclado, texto alternativo en cada marca y una tabla equivalente debajo de cada gráfico. Las variaciones llevan flecha y texto además de color.
 
 ### Recordatorios al móvil
 
@@ -209,5 +219,5 @@ Lo que esta demo deja fuera a propósito:
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
 - **Pacientes**: fusión de fichas duplicadas, alta sin cita e importación de la cartera que ya tenga la clínica.
 - **Permisos más finos**: un profesional puede tocar las citas de otro.
-- Festivos automáticos, citas periódicas, lista de espera, cobros y facturación, monitorización de errores.
+- Festivos automáticos, citas periódicas, lista de espera, cobros y facturación (las estadísticas cuentan lo atendido, no lo cobrado), monitorización de errores.
 - Historia clínica: exige otro nivel de seguridad y normativa, y las clínicas ya usan software específico.

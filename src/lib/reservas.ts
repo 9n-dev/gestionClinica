@@ -112,6 +112,7 @@ export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ 
           profesional: { connect: { id: profesionalId } },
           inicio,
           fin: finDe(inicio, servicio.duracionMin),
+          precioCent: servicio.precioCent,
           paciente: {
             connectOrCreate: {
               where: { telefono_nombreNorm: { telefono: d.telefono, nombreNorm } },

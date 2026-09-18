@@ -136,6 +136,7 @@ export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
         fin,
         estado: cancelada ? "CANCELADA" : fin > ahora ? "CONFIRMADA" : creadas % 8 === 5 ? "NO_PRESENTADA" : "ATENDIDA",
         canceladaAt: cancelada ? ahora : null,
+        precioCent: servicio.precioCent,
         pacienteId: paciente.id,
         pacienteNombre: paciente.nombre,
         pacienteTelefono: paciente.telefono,

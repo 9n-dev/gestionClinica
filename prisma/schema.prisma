@@ -110,6 +110,8 @@ model Cita {
   inicio                DateTime // UTC
   fin                   DateTime
   estado                EstadoCita       @default(CONFIRMADA)
+  // Precio del servicio al reservar: los ingresos de meses pasados no cambian si luego cambia la tarifa.
+  precioCent            Int              @default(0)
   pacienteId            String
   paciente              Paciente         @relation(fields: [pacienteId], references: [id])
   // Foto de lo que se escribió al reservar; la ficha viva está en Paciente.
