@@ -174,7 +174,7 @@ Una agenda de podología con notas es dato de salud, así que también se apunta
 
 `next.config.ts` pone en todas las respuestas CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy`. La CSP es la que se puede tener sin nonces: Next inyecta scripts en línea y la app usa atributos `style`, así que `script-src` y `style-src` llevan `'unsafe-inline'`. No frena un XSS en línea (de eso se ocupa React, que escapa lo que pinta), pero sí cierra scripts, marcos y envíos de formularios a otros orígenes, `<base>`, `<object>` y que otra web meta el panel en un iframe. Un test de extremo a extremo recorre la app con la consola abierta y falla si la CSP bloquea algo propio. Pasar a nonces (middleware) es el siguiente paso si se quiere una CSP estricta.
 
-Dependabot abre cada semana una PR con parches y versiones menores agrupados; el CI dice si se puede mezclar. Los saltos de versión mayor de Next, React y Prisma se deciden a mano.
+Dependabot abre cada semana una PR con parches y versiones menores agrupados; el CI dice si se puede mezclar. Los saltos de versión mayor (de Next, React o Prisma, pero también de TypeScript o ESLint) se deciden a mano.
 
 `npm audit` avisa de 6 vulnerabilidades y ninguna se ejecuta en esta app: `mysql2` y `deepmerge-ts` los arrastra el CLI de Prisma (la base de datos es SQLite/libSQL, el controlador de MySQL no se carga nunca y el CLI solo corre al instalar y en local), y `postcss` va dentro de Next y solo procesa el CSS propio al compilar, mientras que sus avisos son sobre CSS de un atacante. Lo que propone `npm audit fix --force` es bajar Prisma a la versión 6 o saltar a Next 16: cambiar el stack para no arreglar ningún riesgo real.
 

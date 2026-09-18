@@ -11,16 +11,9 @@ updates:
       menores-y-parches:
         update-types: [minor, patch]
     ignore:
-      # Los saltos de versión mayor del stack se deciden a mano.
-      - dependency-name: next
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "prisma"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@prisma/*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
+      # Los saltos de versión mayor (Next, React, Prisma, pero también TypeScript o ESLint) se deciden a mano:
+      # en la primera pasada, tres de cuatro rompían el CI.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
