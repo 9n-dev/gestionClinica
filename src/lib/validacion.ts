@@ -57,6 +57,9 @@ export const esquemaCitaPanel = z.object({
   telefono,
   email: emailOpcional,
   notas: z.string().trim().max(1000).optional(),
+  // Serie: la misma cita cada N semanas, `veces` en total (con la primera). 0 = cita suelta.
+  repetirCada: z.coerce.number().int().min(0).max(12).default(0),
+  veces: z.coerce.number().int().min(2).max(8).default(2),
 });
 
 export const esquemaPaciente = z.object({

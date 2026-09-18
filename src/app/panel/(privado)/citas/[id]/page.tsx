@@ -14,7 +14,7 @@ import { FormularioMover, FormularioNotas } from "./formularios";
 
 export const metadata: Metadata = { title: "Detalle de cita" };
 
-type Params = { creada?: string; movida?: string; dia?: string; profesional?: string };
+type Params = { creada?: string; movida?: string; dia?: string; profesional?: string; serie?: string; sinHueco?: string };
 
 export default async function DetalleCita({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Params> }) {
   const { user } = await requerirSesion();
@@ -26,7 +26,9 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
   const puede = puedeGestionar(user, cita.profesionalId);
   const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
   const estado = ESTADOS[cita.estado];
-  const aviso = sp.creada ? "Cita creada." : sp.movida ? "Cita movida." : null;
+  const sinHueco = (sp.sinHueco ?? "").split(",").filter(esDia);
+  const aviso = sp.movida ? "Cita movida." : !sp.creada ? null : sp.serie === undefined ? "Cita creada."
+    : `Cita creada, y ${sp.serie === "1" ? "otra más" : `otras ${Number(sp.serie) || 0}`} de la serie (están en la ficha del paciente).`;
 
   // Cambiar hora: día y profesional por parámetro, horas libres calculadas sin contar esta misma cita
   let mover: { profesionales: { slug: string; nombre: string }[]; profesional: string; dia: string; horas: string[] } | null = null;
@@ -42,6 +44,7 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
     <div className="max-w-3xl">
       <p><Link href={`/panel/agenda?fecha=${diaDe(cita.inicio)}`} className="enlace">Volver a la agenda de ese día</Link></p>
       {aviso && <p role="status" className="mt-4 rounded-md bg-pino-claro px-4 py-2 font-bold text-exito">{aviso}</p>}
+      {sinHueco.length > 0 && <p role="alert" className="mt-2 rounded-md bg-ambar-claro px-4 py-2"><strong>Sin hueco a esa hora</strong> el {sinHueco.map((d) => formatoDia(d, { day: "numeric", month: "long" })).join(", ")}: esas no se han creado. Dales cita a mano.</p>}
       <h1 className="mt-4 text-3xl font-bold">{cita.pacienteNombre}</h1>
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className={`inline-block rounded px-2.5 py-0.5 font-bold ${estado.clase}`}>{estado.texto}</span>

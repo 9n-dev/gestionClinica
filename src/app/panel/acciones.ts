@@ -64,11 +64,23 @@ export async function crearCitaPanel(_: Estado, fd: FormData): Promise<Estado> {
   const datos = esquemaCitaPanel.safeParse(valores);
   if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
   if (!puedeGestionar(user, await idDeProfesional(datos.data.profesional))) return { error: SOLO_LO_TUYO, valores };
-  const r = await crearCita(datos.data, true);
+  const { repetirCada, veces, ...cita } = datos.data;
+  const r = await crearCita(cita, true);
   if (!r.ok) return { error: r.error, valores };
-  await anotar(user, "CREAR", "cita", r.id, `${datos.data.dia} ${datos.data.hora}`);
+  await anotar(user, "CREAR", "cita", r.id, `${cita.dia} ${cita.hora}`);
+
+  // Serie: mismo día de la semana y misma hora. Si una fecha no tiene hueco, se salta y se avisa; no se busca otra hora sola.
+  const serie = { creadas: 0, sinHueco: [] as string[] };
+  for (let n = 1; repetirCada && n < veces; n++) {
+    const dia = sumarDias(cita.dia, n * repetirCada * 7);
+    const otra = await crearCita({ ...cita, dia }, true);
+    if (otra.ok) {
+      serie.creadas++;
+      await anotar(user, "CREAR", "cita", otra.id, `${dia} ${cita.hora} (serie)`);
+    } else serie.sinHueco.push(dia);
+  }
   refrescar();
-  redirect(`/panel/citas/${r.id}?creada=1`);
+  redirect(`/panel/citas/${r.id}?creada=1${repetirCada ? `&serie=${serie.creadas}&sinHueco=${serie.sinHueco.join(",")}` : ""}`);
 }
 
 export async function moverDesdeFormulario(id: string, _: Estado, fd: FormData): Promise<Estado> {
