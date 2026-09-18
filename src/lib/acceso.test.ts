@@ -6,12 +6,12 @@ const RUTA = `/tmp/podologia-test-acceso-${process.pid}.db`;
 process.env.DATABASE_URL = `file:${RUTA}`;
 process.env.RESEND_API_KEY = "";
 const { prisma } = await import("./db");
-const { crearTablasSiFaltan } = await import("./migraciones");
+const { migrar } = await import("./migraciones");
 const { enviarAcceso, ponerPassword, usuarioDeToken } = await import("./acceso");
 
 beforeAll(async () => {
   vi.spyOn(console, "log").mockImplementation(() => {});
-  await crearTablasSiFaltan(prisma);
+  await migrar();
 });
 afterAll(async () => {
   await prisma.$disconnect();

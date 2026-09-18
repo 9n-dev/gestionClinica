@@ -48,6 +48,7 @@ npm run dev          # http://localhost:3000
 | --- | --- |
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` / `npm start` | Build y servidor de producción |
+| `npm run migrar` | Aplica las migraciones pendientes a la base de datos de `DATABASE_URL` (local o Turso). `npm run build` lo ejecuta antes de compilar |
 | `npm run seed` | Reinicia los datos: usuarios, profesionales, servicios, horarios, bloqueos, 30 pacientes, ~40 citas en 14 días, un historial de dos meses y emails de muestra |
 | `npm test` | Tests de la lógica: disponibilidad (pura) y, contra una SQLite temporal con el esquema real, movimiento de citas, identidad del paciente, enlaces de acceso y límite de intentos |
 | `npm run test:e2e` | Playwright contra el build de producción con una base de datos recién sembrada (`e2e.db`): reserva → ficha → cancelación por email, alta de usuario → contraseña → permisos, y bloqueo del login. La primera vez: `npx playwright install chromium` |
@@ -128,7 +129,7 @@ Un fichero SQLite no sirve en Vercel (el sistema de ficheros es de solo lectura 
    turso db show podologia-serrano --url      # → DATABASE_URL
    turso db tokens create podologia-serrano   # → DATABASE_AUTH_TOKEN
    ```
-2. **Crea las tablas y carga la demo** desde tu máquina, apuntando a Turso:
+2. **Crea las tablas y carga la demo** (`npm run seed` aplica las migraciones y siembra) desde tu máquina, apuntando a Turso:
    ```bash
    DATABASE_URL="libsql://…" DATABASE_AUTH_TOKEN="…" npm run seed
    ```
@@ -147,14 +148,19 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://tu-dominio/api/cron/recorda
 
 **Arrastrar y soltar** usa la API nativa de HTML5, sin librerías; en pantallas táctiles no funciona, ahí se usa «Cambiar hora» en el detalle de la cita.
 
-**Cambios de esquema:** en local, `npx prisma migrate dev` (siempre trabaja contra `dev.db`). `npm run seed` solo aplica las migraciones sobre una base de datos vacía, así que para llevar un cambio de esquema a Turso lo más simple en una demo es recrear la base de datos y repetir el paso 2.
+**Cambios de esquema:** en local, `npx prisma migrate dev` (siempre trabaja contra `dev.db`) y después `npx prisma generate`. En producción no hay que hacer nada: `npm run build` empieza por `npm run migrar`, que aplica a la base de datos de `DATABASE_URL` las migraciones que le falten, así que cada despliegue la deja al día. `prisma migrate deploy` no habla con Turso; por eso hay un ejecutor propio en `src/lib/migraciones.ts`:
+
+- Lo aplicado se apunta en la tabla `_migraciones`. Una base de datos anterior a esa tabla se reconoce por su esquema y recibe solo lo que le falta.
+- Cada migración va en una transacción y con las claves foráneas apagadas **en la misma conexión** (`client.migrate()` de libSQL). Importa: las migraciones que rehacen una tabla hacen `DROP TABLE`, y con Turso por HTTP un `PRAGMA foreign_keys=OFF` suelto no vale para la sentencia siguiente, de modo que el `DROP` de `citas` borraría en cascada las franjas ocupadas. Hay un test que migra una base de datos antigua con datos y comprueba que no se pierde nada.
+- Ojo con los despliegues de vista previa de Vercel: si comparten `DATABASE_URL` con producción, migran producción. Dales su propia base de datos.
+
+**Copias de seguridad:** Turso guarda el historial y permite restaurar a un punto en el tiempo (`turso db create restaurada --from-db podologia-serrano --timestamp …`). Para tener además una copia fuera: `turso db shell podologia-serrano .dump > copia.sql`. Una copia que no se ha probado a restaurar no cuenta: restáurala en una base de datos nueva y arranca la app contra ella antes de darla por buena.
 
 ## Para convertirlo en un producto real
 
 Lo que esta demo deja fuera a propósito:
 
 - **Quitar el modo demo**: el cron de reinicio, las contraseñas a la vista en el login y los usuarios con `demo = true`.
-- **Migraciones en producción**: `npm run seed` solo crea las tablas en una base de datos vacía. Con datos reales hace falta aplicar las migraciones en cada despliegue y tener copias de seguridad con la restauración probada.
 - **Protección de datos**: una agenda de podología con notas es dato de salud. Contratos de encargo con los proveedores, alojamiento en la UE, registro de accesos, retención y borrado, y textos legales revisados por la asesoría de cada clínica.
 - **Sesiones**: cambiar la contraseña no cierra las sesiones que ya estuvieran abiertas, y no hay cambio de contraseña desde dentro del panel (se hace con «he olvidado mi contraseña»).
 - **Pacientes**: fusión de fichas duplicadas y exportación o borrado de los datos de un paciente.

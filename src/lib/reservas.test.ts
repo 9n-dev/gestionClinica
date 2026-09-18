@@ -7,7 +7,7 @@ const RUTA = `/tmp/podologia-test-${process.pid}.db`;
 process.env.DATABASE_URL = `file:${RUTA}`;
 process.env.RESEND_API_KEY = "";
 const { prisma } = await import("./db");
-const { crearTablasSiFaltan } = await import("./migraciones");
+const { migrar } = await import("./migraciones");
 const { sembrar } = await import("./seed-datos");
 const { crearCita, moverCita, cancelarCita } = await import("./reservas");
 
@@ -18,7 +18,7 @@ const paciente = { nombre: "Paciente Prueba", telefono: "611111111", email: null
 
 beforeAll(async () => {
   vi.spyOn(console, "log").mockImplementation(() => {});
-  await crearTablasSiFaltan(prisma);
+  await migrar();
   await sembrar(prisma, 0);
   await prisma.bloqueo.deleteMany(); // los bloqueos del seed caen en días que usan los tests
 });

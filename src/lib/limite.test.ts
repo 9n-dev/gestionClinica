@@ -4,10 +4,10 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 const RUTA = `/tmp/podologia-test-limite-${process.pid}.db`;
 process.env.DATABASE_URL = `file:${RUTA}`;
 const { prisma } = await import("./db");
-const { crearTablasSiFaltan } = await import("./migraciones");
+const { migrar } = await import("./migraciones");
 const { agotado, borrarIntentosViejos, ipDe, permitido } = await import("./limite");
 
-beforeAll(async () => void (await crearTablasSiFaltan(prisma)));
+beforeAll(async () => void (await migrar()));
 afterAll(async () => {
   await prisma.$disconnect();
   rmSync(RUTA, { force: true });
