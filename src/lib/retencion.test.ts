@@ -49,8 +49,9 @@ it("borra lo que ha cumplido su plazo y no toca lo demás", async () => {
 
   process.env.RETENCION_PACIENTES_MESES = "60";
   const r = await aplicarRetencion(AHORA);
-  // emails y mensajes: 2 por antigüedad; los del paciente anonimizado ya se los llevó su supresión
-  expect(r).toEqual({ citasCanceladas: 1, pacientesInactivos: 1, emails: 2, mensajes: 2, actividad: 1 });
+  // emails y mensajes: 1 por antigüedad. Los de la cita cancelada se van con ella y los del paciente anonimizado, con su supresión.
+  expect(r).toEqual({ citasCanceladas: 1, pacientesInactivos: 1, emails: 1, mensajes: 1, actividad: 1 });
+  // (todos los pacientes de este test comparten teléfono a propósito: la supresión de uno no puede llevarse los mensajes de otro)
 
   // Citas canceladas: 12 meses
   expect(await prisma.cita.findUnique({ where: { id: canceladaVieja } })).toBeNull();
@@ -71,4 +72,14 @@ it("los pacientes inactivos no se tocan si la clínica no ha fijado un plazo", a
   delete process.env.RETENCION_PACIENTES_MESES;
   await cita("Otro Antiguo", hace(120));
   expect((await aplicarRetencion(AHORA)).pacientesInactivos).toBe(0);
+});
+
+it("al borrar una cita cancelada se van con ella sus emails y mensajes, aunque su propio plazo sea más largo", async () => {
+  process.env.RETENCION_MENSAJES_MESES = "0"; // la copia de emails no se borra nunca por antigüedad
+  const id = await cita("Cancelada Con Correo", hace(14), "CANCELADA");
+  await aplicarRetencion(AHORA);
+  expect(await prisma.cita.findUnique({ where: { id } })).toBeNull();
+  expect(await prisma.emailEnviado.count({ where: { html: "Cancelada Con Correo" } })).toBe(0);
+  expect(await prisma.mensajeEnviado.count({ where: { texto: "Cancelada Con Correo" } })).toBe(0);
+  delete process.env.RETENCION_MENSAJES_MESES;
 });

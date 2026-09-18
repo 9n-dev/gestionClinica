@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { AuthError } from "next-auth";
 import { enviarAcceso, ponerPassword } from "@/lib/acceso";
 import { anotar } from "@/lib/auditoria";
@@ -34,7 +35,8 @@ export async function pedirAcceso(_: EstadoAcceso, fd: FormData): Promise<Estado
   if (!(await permitido(`recuperar:${ipDe(await headers())}`, 5, 60))) return { error: "Demasiadas peticiones. Espera una hora y vuelve a probar." };
   const usuario = await prisma.usuario.findFirst({ where: { email: datos.data.email, demo: false } });
   // Tope también por destinatario, para que nadie use esto para llenarle el correo a otro. Se calla: la respuesta no cambia.
-  if (usuario && (await permitido(`recuperar:${usuario.email}`, 3, 60))) await enviarAcceso(usuario, false);
+  // El envío va después de responder: si se esperase, la respuesta tardaría más cuando el email existe, y eso lo delata.
+  if (usuario && (await permitido(`recuperar:${usuario.email}`, 3, 60))) after(() => enviarAcceso(usuario, false));
   return { ok: "Si ese email tiene usuario en el panel, acabamos de enviarle un enlace para cambiar la contraseña. Vale durante 1 hora." };
 }
 

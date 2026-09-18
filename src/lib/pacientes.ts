@@ -13,6 +13,8 @@ export const ELIMINADO = "Paciente eliminado";
 export async function suprimirPaciente(id: string, ahora = new Date()): Promise<{ ok: true } | { ok: false; error: string }> {
   const pendientes = await prisma.cita.count({ where: { pacienteId: id, estado: "CONFIRMADA", inicio: { gt: ahora } } });
   if (pendientes) return { ok: false, error: `Tiene ${pendientes === 1 ? "una cita pendiente" : `${pendientes} citas pendientes`}. Cancélalas antes: al borrar sus datos ya no habría a quién avisar.` };
+  // Por cita y no por destinatario: un teléfono o un email pueden ser de varios pacientes (la madre que reserva para su
+  // hijo), y borrar por ellos se llevaría lo de otro. No quedan emails sueltos: la retención los borra junto a su cita.
   await prisma.$transaction([
     prisma.emailEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),
     prisma.mensajeEnviado.deleteMany({ where: { cita: { pacienteId: id } } }),

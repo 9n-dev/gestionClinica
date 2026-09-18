@@ -18,7 +18,14 @@ export async function aplicarRetencion(ahora = new Date()) {
   const r = { citasCanceladas: 0, pacientesInactivos: 0, emails: 0, mensajes: 0, actividad: 0 };
 
   const canceladas = meses("RETENCION_CANCELADAS_MESES", 12);
-  if (canceladas) r.citasCanceladas = (await prisma.cita.deleteMany({ where: { estado: "CANCELADA", canceladaAt: { lt: hace(ahora, canceladas) } } })).count;
+  if (canceladas) {
+    const viejas = { estado: "CANCELADA" as const, canceladaAt: { lt: hace(ahora, canceladas) } };
+    // Sus emails y mensajes se van con ellas. Si se quedaran, colgarían de ninguna cita (citaId pasa a null) con el nombre
+    // y el teléfono dentro, y una supresión posterior del paciente ya no los encontraría.
+    await prisma.emailEnviado.deleteMany({ where: { cita: viejas } });
+    await prisma.mensajeEnviado.deleteMany({ where: { cita: viejas } });
+    r.citasCanceladas = (await prisma.cita.deleteMany({ where: viejas })).count;
+  }
 
   const inactivos = meses("RETENCION_PACIENTES_MESES", 0);
   if (inactivos) {

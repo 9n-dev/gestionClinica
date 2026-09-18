@@ -12,6 +12,11 @@ export async function permitido(clave: string, max: number, minutos: number) {
   return cuenta <= max;
 }
 
+/** Devuelve un intento ya apuntado (el login acertó). */
+export async function devolver(clave: string, minutos: number) {
+  await prisma.intento.updateMany({ where: { clave, ventana: ventanaDe(minutos), cuenta: { gt: 0 } }, data: { cuenta: { decrement: 1 } } });
+}
+
 /** Solo mira, sin apuntar. Para el login, donde solo cuentan los fallos. */
 export async function agotado(clave: string, max: number, minutos: number) {
   const fila = await prisma.intento.findUnique({ where: { clave_ventana: { clave, ventana: ventanaDe(minutos) } } });

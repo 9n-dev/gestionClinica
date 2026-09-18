@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FormularioAuto } from "@/components/FormularioAuto";
+import { anotar } from "@/lib/auditoria";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { esDia, formatoDia, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
@@ -19,6 +20,7 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
     prisma.servicio.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
     sp.paciente ? prisma.paciente.findUnique({ where: { id: sp.paciente } }) : null, // desde la ficha: datos ya rellenos
   ]);
+  if (paciente) await anotar(sesion.user, "VER", "paciente", paciente.id); // el formulario relleno enseña su teléfono y su email: es abrir su ficha
   const profesional = profesionales.find((p) => p.slug === (sp.profesional ?? sesion.user.profesionalSlug)) ?? profesionales[0];
   const servicio = servicios.find((s) => s.slug === sp.servicio) ?? servicios[0];
   // Sin día elegido: el primero de las dos próximas semanas con algún hueco. Abrir en «hoy» un viernes a las ocho de la

@@ -13,12 +13,13 @@ async function main() {
   const datos = esquemaEmail.safeParse({ email });
   if (!datos.success) throw new Error('Uso: npm run crear-admin -- email@clinica.es "Nombre y apellidos"');
 
+  // Antes de tocar nada: hacer ADMIN a un usuario de la demo sería dar administración a una contraseña pública.
+  if ((await prisma.usuario.findUnique({ where: { email: datos.data.email } }))?.demo) throw new Error("Ese es un usuario de la demo: su contraseña es fija.");
   const usuario = await prisma.usuario.upsert({
     where: { email: datos.data.email },
     update: { rol: "ADMIN" },
     create: { email: datos.data.email, nombre, rol: "ADMIN", passwordHash: await hash(nuevoToken(), 10) },
   });
-  if (usuario.demo) throw new Error("Ese es un usuario de la demo: su contraseña es fija.");
   console.log(`Administrador: ${usuario.email}\nEnlace para elegir contraseña (un solo uso, 3 días):\n${await crearEnlaceAcceso(usuario.id, true)}`);
 }
 

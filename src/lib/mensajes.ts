@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { CanalMensaje, TipoEmail } from "@/generated/prisma/client";
-import { URL_BASE } from "./clinica";
+import { MODO_DEMO, URL_BASE } from "./clinica";
 import { prisma } from "./db";
 
 // Mensajes al móvil con Twilio, por su API REST (sin SDK). Mismo trato que los emails: sin credenciales van a la
@@ -52,8 +52,9 @@ async function enviarSms(m: Mensaje) {
 /** Nunca lanza: un fallo al avisar no debe tumbar lo que lo llamó. Devuelve si el mensaje ha salido por algún canal. */
 export async function enviarMensaje(m: Mensaje) {
   try {
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      console.log(`[mensaje:${m.tipo}] para=${e164(m.telefono)} · ${m.texto}`);
+    // En la demo no sale nada aunque haya cuenta de Twilio: con las contraseñas a la vista, cualquiera gastaría SMS.
+    if (MODO_DEMO || !process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+      console.log(`[mensaje:${m.tipo}] sin enviar${m.citaId ? `, cita ${m.citaId}` : ""}: está en mensajes_enviados`); // sin teléfono ni texto: lleva el enlace para cancelar
       await registrar(m, "CONSOLA", {});
       return true;
     }

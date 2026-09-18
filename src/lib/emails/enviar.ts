@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import type { TipoEmail } from "@/generated/prisma/client";
+import { MODO_DEMO } from "../clinica";
 import { prisma } from "../db";
 import { candidatosPara } from "../espera";
 import { plantillas, type CitaCompleta } from "./plantillas";
@@ -14,7 +15,8 @@ const clinica = () => process.env.EMAIL_CLINICA || "clinica@podologiaserrano.es"
  */
 export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: string; asunto: string; html: string; citaId?: string; secreto?: string }) {
   // Los pacientes del seed usan @ejemplo.com: jamás se les envía nada real.
-  const real = !!process.env.RESEND_API_KEY && !e.para.endsWith("@ejemplo.com");
+  // En la demo tampoco: sus contraseñas son públicas, y cualquiera podría mandar emails con la marca de la clínica.
+  const real = !MODO_DEMO && !!process.env.RESEND_API_KEY && !e.para.endsWith("@ejemplo.com");
   let error: string | null = null;
   let proveedorId: string | undefined;
   try {
@@ -28,12 +30,12 @@ export async function enviarEmail({ secreto, ...e }: { tipo: TipoEmail; para: st
       if (r.error) error = r.error.message;
       proveedorId = r.data?.id; // con él, el webhook de rebotes sabrá a qué email se refiere
     } else {
-      console.log(`[email:${e.tipo}] para=${e.para} · ${e.asunto}`);
+      console.log(`[email:${e.tipo}] sin enviar${e.citaId ? `, cita ${e.citaId}` : ""}: está en emails_enviados`); // ni destinatario ni asunto: el log de la plataforma no es sitio para datos de pacientes
     }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   }
-  if (error) console.error(`[email:${e.tipo}] fallo al enviar a ${e.para}: ${error}`);
+  if (error) console.error(`[email:${e.tipo}] fallo al enviar${e.citaId ? ` (cita ${e.citaId})` : ""}: ${error}`);
   try {
     await prisma.emailEnviado.create({ data: { ...e, html: real && secreto ? e.html.replaceAll(secreto, "[enlace de un solo uso: no se guarda]") : e.html, canal: real ? "RESEND" : "CONSOLA", error, proveedorId } });
   } catch (err) {

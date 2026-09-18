@@ -5,7 +5,7 @@ const RUTA = `/tmp/podologia-test-limite-${process.pid}.db`;
 process.env.DATABASE_URL = `file:${RUTA}`;
 const { prisma } = await import("./db");
 const { migrar } = await import("./migraciones");
-const { agotado, borrarIntentosViejos, ipDe, permitido } = await import("./limite");
+const { agotado, borrarIntentosViejos, devolver, ipDe, permitido } = await import("./limite");
 
 beforeAll(async () => void (await migrar()));
 afterAll(async () => {
@@ -34,4 +34,11 @@ it("deja pasar hasta el máximo, corta después y vuelve a dejar en la ventana s
 it("la IP es la primera de x-forwarded-for", () => {
   expect(ipDe(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }))).toBe("203.0.113.7");
   expect(ipDe(new Headers())).toBe("desconocida");
+});
+
+it("un intento devuelto no cuenta: el login apunta antes de comprobar la contraseña y lo devuelve si acierta", async () => {
+  for (let i = 0; i < 3; i++) expect(await permitido("prueba:login", 3, 15)).toBe(true);
+  await devolver("prueba:login", 15); // este acertó
+  expect(await permitido("prueba:login", 3, 15)).toBe(true);
+  expect(await permitido("prueba:login", 3, 15)).toBe(false);
 });

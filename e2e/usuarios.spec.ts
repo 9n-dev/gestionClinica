@@ -82,7 +82,16 @@ test("los usuarios de la demo no se pueden cambiar ni recuperar", async ({ page 
   await page.getByLabel("Email").fill(DEMO.recepcion);
   await page.getByRole("button", { name: "Enviarme el enlace" }).click();
   await expect(page.getByRole("status")).toContainText("Si ese email tiene usuario");
-  await entrar(page, DEMO.recepcion, DEMO.password);
+  await entrar(page, DEMO.admin, DEMO.password);
   await page.goto("/panel/emails");
   await expect(page.getByText("Cambia tu contraseña del panel")).toHaveCount(0);
+  // Administración sí ve la invitación de Eva, del test anterior…
+  await expect(page.getByText("Tu acceso al panel").first()).toBeVisible();
+
+  // …y el equipo no: ese email lleva un enlace con el que se pone la contraseña de la cuenta
+  await salir(page);
+  await entrar(page, DEMO.recepcion, DEMO.password);
+  await page.goto("/panel/emails");
+  await expect(page.getByRole("heading", { name: "Emails y mensajes enviados" })).toBeVisible();
+  await expect(page.getByText("Tu acceso al panel")).toHaveCount(0);
 });

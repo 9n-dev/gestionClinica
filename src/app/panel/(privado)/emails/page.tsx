@@ -11,9 +11,12 @@ const TIPOS = { CONFIRMACION_PACIENTE: "Confirmación al paciente", AVISO_CLINIC
 const CANALES = { WHATSAPP: "WhatsApp", SMS: "SMS", CONSOLA: "Consola" };
 
 export default async function Emails() {
-  await requerirSesion();
+  const { user } = await requerirSesion();
+  // Sin Resend, un email de ACCESO guarda su enlace de un solo uso (es la única forma de leerlo): quien lo vea puede poner
+  // la contraseña de esa cuenta. Y las ALERTAS llevan trazas del servidor. Las dos cosas, solo para administración.
+  const visibles = user.rol === "ADMIN" ? {} : { tipo: { notIn: ["ACCESO", "ALERTA"] as ("ACCESO" | "ALERTA")[] } };
   const [emails, mensajes] = await Promise.all([
-    prisma.emailEnviado.findMany({ orderBy: { enviadoAt: "desc" }, take: 100 }),
+    prisma.emailEnviado.findMany({ where: visibles, orderBy: { enviadoAt: "desc" }, take: 100 }),
     prisma.mensajeEnviado.findMany({ orderBy: { enviadoAt: "desc" }, take: 50 }),
   ]);
   return (

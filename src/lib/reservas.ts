@@ -130,8 +130,10 @@ export async function crearCita(d: DatosReserva, desdePanel = false, avisar = tr
         },
         include: { servicio: true, profesional: true },
       });
-      // Paciente que ya existía: el email más reciente es el bueno.
-      if (d.email) await prisma.paciente.update({ where: { id: cita.pacienteId }, data: { email: d.email } });
+      // Paciente que ya existía. Desde el panel, el email que dicta recepción es el bueno. Desde la web solo se rellena si
+      // faltaba: a quien reserva no se le ha verificado nada, y con saber el nombre y el teléfono de otro le cambiaría el
+      // email de la ficha, adonde irían después sus confirmaciones y sus enlaces para cancelar.
+      if (d.email) await prisma.paciente.updateMany({ where: { id: cita.pacienteId, ...(desdePanel ? {} : { email: null }) }, data: { email: d.email } });
       if (avisar) await emailsCitaNueva(cita);
       return { ok: true, token: cita.tokenCancelacion, id: cita.id };
     } catch (e) {
@@ -178,6 +180,8 @@ export async function moverCita(id: string, destino: { profesional: string; dia:
 export async function cancelarCita(where: { id: string } | { tokenCancelacion: string }, avisarPaciente = true) {
   const cita = await prisma.cita.findUnique({ where, include: { servicio: true, profesional: true } });
   if (!cita || cita.estado !== "CONFIRMADA") return false;
+  // Con el enlace del email no se toca una cita que ya ha pasado (la página esconde el botón, pero eso no es una comprobación).
+  if ("tokenCancelacion" in where && cita.inicio <= new Date()) return false;
   await prisma.$transaction([
     prisma.cita.update({ where: { id: cita.id }, data: { estado: "CANCELADA", canceladaAt: new Date() } }),
     prisma.franjaOcupada.deleteMany({ where: { citaId: cita.id } }),

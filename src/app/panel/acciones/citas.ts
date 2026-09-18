@@ -27,6 +27,9 @@ export async function cancelarDesdePanel(id: string) {
 }
 
 export async function cambiarEstado(id: string, estado: "ATENDIDA" | "NO_PRESENTADA") {
+  // El argumento viaja por la red: el tipo de arriba no lo comprueba nadie en el servidor. Con "CANCELADA" la cita quedaría
+  // cancelada sin liberar sus franjas ni avisar al paciente (eso lo hace cancelarCita).
+  if (estado !== "ATENDIDA" && estado !== "NO_PRESENTADA") return;
   const user = await sesionParaCita(id);
   if (!user) return;
   const { count } = await prisma.cita.updateMany({ where: { id, estado: "CONFIRMADA" }, data: { estado } });

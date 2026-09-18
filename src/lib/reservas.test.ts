@@ -199,3 +199,25 @@ describe("fusionar fichas", () => {
     expect(ficha.citas.map((c) => c.id).sort()).toEqual([pepe.id, jose.id].sort());
   });
 });
+
+describe("hallazgos de la auditoría de seguridad", () => {
+  it("una reserva por la web no cambia el email de la ficha de un paciente que ya lo tenía; desde el panel, sí", async () => {
+    const dia = sumarDias(LUNES, 28);
+    const base = { nombre: "Víctima Conocida", telefono: "677000001", servicio: "consulta-general", profesional: "laura-serrano", dia };
+    const ficha = async (r: Awaited<ReturnType<typeof crearCita>>) => { if (!r.ok) throw new Error(r.error); return (await prisma.cita.findUniqueOrThrow({ where: { id: r.id }, include: { paciente: true } })).paciente; };
+    expect((await ficha(await crearCita({ ...base, email: "la-buena@correo.test", hora: "09:00" }, true))).email).toBe("la-buena@correo.test");
+    // Alguien que sabe su nombre y su teléfono reserva por la web con otro email: la ficha no se toca
+    expect((await ficha(await crearCita({ ...base, email: "atacante@correo.test", hora: "10:00" }))).email).toBe("la-buena@correo.test");
+    // Recepción sí puede corregirlo al dar una cita
+    expect((await ficha(await crearCita({ ...base, email: "la-nueva@correo.test", hora: "11:00" }, true))).email).toBe("la-nueva@correo.test");
+  });
+
+  it("con el enlace del email no se cancela una cita que ya ha pasado", async () => {
+    const r = await crearCita({ ...paciente, servicio: "consulta-general", profesional: "marcos-ortiz", dia: sumarDias(LUNES, 28), hora: "12:00" }, true);
+    if (!r.ok) throw new Error(r.error);
+    await prisma.cita.update({ where: { id: r.id }, data: { inicio: new Date(Date.now() - 86_400_000), fin: new Date(Date.now() - 86_400_000 + 1_800_000) } });
+    expect(await cancelarCita({ tokenCancelacion: r.token })).toBe(false);
+    expect((await citaDe(r.id)).estado).toBe("CONFIRMADA");
+    expect(await cancelarCita({ id: r.id })).toBe(true); // la clínica sí puede, desde el panel
+  });
+});
