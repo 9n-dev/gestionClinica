@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requerirSesion } from "@/lib/auth";
 import { CLINICA } from "@/lib/clinica";
-import { salir } from "../acciones-sesion";
+import { salir } from "@/app/panel/acciones/sesion";
 
 export const metadata: Metadata = { title: { default: "Panel", template: `%s · Panel ${CLINICA.nombre}` }, robots: { index: false } };
 export const dynamic = "force-dynamic";

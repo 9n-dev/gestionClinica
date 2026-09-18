@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { minutosAHora } from "@/lib/fechas";
-import { moverArrastrando } from "../../acciones";
+import { moverArrastrando } from "@/app/panel/acciones/citas";
 
 // Todo lo que recibe es serializable: minutos desde medianoche y textos ya formateados.
 export type Columna = { dia: string; diaTexto: string; esHoy: boolean; pro: { id: string; slug: string; nombre: string; iniciales: string } };

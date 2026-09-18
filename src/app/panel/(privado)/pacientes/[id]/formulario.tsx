@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { apuntarEnEspera, guardarPaciente, suprimirDatosPaciente, type Estado } from "../../../acciones";
+import { type Estado } from "@/app/panel/acciones/comun";
+import { apuntarEnEspera, guardarPaciente, suprimirDatosPaciente } from "@/app/panel/acciones/pacientes";
 
 export function FormularioPaciente({ p }: { p: { id: string; nombre: string; telefono: string; email: string; notas: string } }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarPaciente.bind(null, p.id), {});

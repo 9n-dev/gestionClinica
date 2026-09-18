@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { anadirFestivos, crearBloqueo, type Estado } from "../../acciones";
+import { anadirFestivos, crearBloqueo } from "@/app/panel/acciones/bloqueos";
+import { type Estado } from "@/app/panel/acciones/comun";
 
 export function FormularioBloqueo({ profesionales, todaLaClinica, porDefecto }: { profesionales: { id: string; nombre: string }[]; todaLaClinica: boolean; porDefecto: string }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(crearBloqueo, {});

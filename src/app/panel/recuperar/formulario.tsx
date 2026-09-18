@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { pedirAcceso, type EstadoAcceso } from "../acciones-sesion";
+import { pedirAcceso, type EstadoAcceso } from "@/app/panel/acciones/sesion";
 
 export function FormularioRecuperar() {
   const [estado, accion, enviando] = useActionState<EstadoAcceso, FormData>(pedirAcceso, {});

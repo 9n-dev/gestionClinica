@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { comprobarImportacion, confirmarImportacion, type EstadoImportacion } from "../../../acciones";
+import { comprobarImportacion, confirmarImportacion, type EstadoImportacion } from "@/app/panel/acciones/pacientes";
 
 const MAX_BYTES = 1_000_000; // el límite de cuerpo de las acciones de servidor de Next
 

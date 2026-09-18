@@ -8,7 +8,7 @@ import { diaDe, formatoDia, formatoFechaHora } from "@/lib/fechas";
 import { ESTADOS } from "../../estados";
 import { posiblesDuplicados } from "@/lib/pacientes";
 import { gestionaTodo } from "@/lib/permisos";
-import { fusionarFichas, quitarDeEspera } from "../../../acciones";
+import { fusionarFichas, quitarDeEspera } from "@/app/panel/acciones/pacientes";
 import { FormularioEspera, FormularioPaciente, FormularioSupresion } from "./formulario";
 
 export const metadata: Metadata = { title: "Ficha de paciente" };

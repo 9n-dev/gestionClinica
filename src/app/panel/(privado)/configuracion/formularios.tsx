@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { minutosAHora } from "@/lib/fechas";
-import { guardarHorario, guardarProfesional, guardarServicio, type Estado } from "../../acciones";
+import { type Estado } from "@/app/panel/acciones/comun";
+import { guardarHorario, guardarProfesional, guardarServicio } from "@/app/panel/acciones/configuracion";
 
 function Resultado({ estado }: { estado: Estado }) {
   return <p role="status" className={`font-bold ${estado.error ? "text-error" : "text-exito"}`}>{estado.error ?? estado.ok}</p>;

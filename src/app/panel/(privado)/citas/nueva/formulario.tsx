@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { crearCitaPanel, type Estado } from "../../../acciones";
+import { crearCitaPanel } from "@/app/panel/acciones/citas";
+import { type Estado } from "@/app/panel/acciones/comun";
 
 type Props = { servicio: string; profesional: string; dia: string; horas: string[]; horaInicial?: string; paciente?: Record<string, string> };
 

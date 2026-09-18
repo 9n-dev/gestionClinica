@@ -10,7 +10,7 @@ import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoH
 import { puedeGestionar } from "@/lib/permisos";
 import { huecosEnRango } from "@/lib/reservas";
 import { FORMAS_PAGO } from "@/lib/validacion";
-import { anularCobro, cambiarEstado, cancelarDesdePanel } from "../../../acciones";
+import { anularCobro, cambiarEstado, cancelarDesdePanel } from "@/app/panel/acciones/citas";
 import { ESTADOS } from "../../estados";
 import { FormularioCobro, FormularioMover, FormularioNotas } from "./formularios";
 

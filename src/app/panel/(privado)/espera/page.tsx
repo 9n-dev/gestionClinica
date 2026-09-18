@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatoFechaHora } from "@/lib/fechas";
-import { quitarDeEspera } from "../../acciones";
+import { quitarDeEspera } from "@/app/panel/acciones/pacientes";
 
 export const metadata: Metadata = { title: "Lista de espera" };
 

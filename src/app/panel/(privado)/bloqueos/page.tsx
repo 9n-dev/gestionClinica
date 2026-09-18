@@ -3,7 +3,7 @@ import { requerirSesion } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatoFechaHora, hoy, sumarDias } from "@/lib/fechas";
 import { gestionaTodo, puedeGestionar } from "@/lib/permisos";
-import { borrarBloqueo } from "../../acciones";
+import { borrarBloqueo } from "@/app/panel/acciones/bloqueos";
 import { FormularioBloqueo, FormularioFestivos } from "./formulario";
 
 export const metadata: Metadata = { title: "Bloqueos" };

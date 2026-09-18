@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { FORMAS_PAGO } from "@/lib/validacion";
-import { cobrarCita, guardarNotas, moverDesdeFormulario, type Estado } from "../../../acciones";
+import { cobrarCita, guardarNotas, moverDesdeFormulario } from "@/app/panel/acciones/citas";
+import { type Estado } from "@/app/panel/acciones/comun";
 
 export function FormularioNotas({ id, notas }: { id: string; notas: string | null }) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(guardarNotas.bind(null, id), {});

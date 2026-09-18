@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { cambiarPassword, type EstadoAcceso } from "../../acciones-sesion";
+import { cambiarPassword, type EstadoAcceso } from "@/app/panel/acciones/sesion";
 
 export function FormularioCambiarPassword({ email }: { email: string }) {
   const [estado, accion, enviando] = useActionState<EstadoAcceso, FormData>(cambiarPassword, {});

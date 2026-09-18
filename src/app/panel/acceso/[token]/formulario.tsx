@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { guardarPassword, type EstadoAcceso } from "../../acciones-sesion";
+import { guardarPassword, type EstadoAcceso } from "@/app/panel/acciones/sesion";
 
 export function FormularioPassword({ token, email }: { token: string; email: string }) {
   const [estado, accion, enviando] = useActionState<EstadoAcceso, FormData>(guardarPassword.bind(null, token), {});

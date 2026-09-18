@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { entrar } from "../acciones-sesion";
+import { entrar } from "@/app/panel/acciones/sesion";
 
 /** `demo`: credenciales ya puestas, solo en modo demo. */
 export function FormularioLogin({ demo }: { demo?: { email: string; password: string } }) {

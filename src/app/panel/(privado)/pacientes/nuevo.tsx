@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { crearPaciente, type Estado } from "../../acciones";
+import { type Estado } from "@/app/panel/acciones/comun";
+import { crearPaciente } from "@/app/panel/acciones/pacientes";
 
 export function FormularioNuevoPaciente() {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(crearPaciente, {});

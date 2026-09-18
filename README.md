@@ -111,6 +111,7 @@ src/lib/emails/               plantillas y envío (Resend o consola)
 src/lib/mensajes.ts           WhatsApp y SMS con Twilio (o consola), webhook de estado y su firma
 src/lib/fechas.ts             utilidades de fecha en Europe/Madrid
 src/app/(publica)/            web, /reservar y /cita/[token]
+src/app/panel/acciones/       acciones de servidor, por área: citas, pacientes, bloqueos, configuración, usuarios y sesión
 src/app/panel/                login, recuperación y panel (agenda, citas, pacientes, bloqueos, emails, configuración, usuarios)
 src/app/api/cron/             recordatorios y reinicio de la demo
 src/app/api/twilio/estado/    webhook: si un WhatsApp no llega, sale el SMS

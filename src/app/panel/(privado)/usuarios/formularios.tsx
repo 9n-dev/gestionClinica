@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { borrarUsuario, crearUsuario, guardarUsuario, type Estado } from "../../acciones";
+import { type Estado } from "@/app/panel/acciones/comun";
+import { borrarUsuario, crearUsuario, guardarUsuario } from "@/app/panel/acciones/usuarios";
 
 type Usuario = { id: string; email: string; nombre: string; rol: "ADMIN" | "EQUIPO"; demo: boolean; profesionalId: string | null };
 type Props = { u?: Usuario; profesionales: { id: string; nombre: string }[]; soyYo?: boolean; invitacionPendiente?: boolean };
