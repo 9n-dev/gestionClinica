@@ -50,6 +50,7 @@ export const nuevoToken = () => randomBytes(24).toString("base64url");
 
 export async function sembrar(prisma: typeof Prisma, nCitas = 40) {
   // Borrado en orden de dependencias
+  await prisma.intento.deleteMany();
   await prisma.emailEnviado.deleteMany();
   await prisma.franjaOcupada.deleteMany();
   await prisma.cita.deleteMany();

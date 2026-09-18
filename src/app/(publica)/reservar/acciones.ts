@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { CLINICA } from "@/lib/clinica";
+import { ipDe, permitido } from "@/lib/limite";
 import { crearCita } from "@/lib/reservas";
 import { esquemaReserva } from "@/lib/validacion";
 
@@ -14,6 +17,10 @@ export async function reservar(_: EstadoReserva, fd: FormData): Promise<EstadoRe
 
   const datos = esquemaReserva.safeParse(valores);
   if (!datos.success) return { error: "Revisa los campos marcados.", campos: z.flattenError(datos.error).fieldErrors, valores };
+
+  // Además del tope de citas por email: frena a quien rellene la agenda cambiando de email en cada reserva.
+  if (!(await permitido(`reserva:${ipDe(await headers())}`, 6, 60)))
+    return { error: `Se han hecho muchas reservas seguidas desde tu conexión. Prueba dentro de una hora o llámanos al ${CLINICA.telefono}.`, valores };
 
   const r = await crearCita(datos.data);
   if (!r.ok) return { error: r.error, valores };

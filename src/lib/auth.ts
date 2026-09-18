@@ -1,10 +1,18 @@
 import { compare } from "bcryptjs";
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "./db";
+import { agotado, ipDe, permitido } from "./limite";
 import { esquemaLogin } from "./validacion";
+
+// 10 contraseñas falladas desde la misma conexión en 15 minutos. Por IP y no por email: con un tope por email,
+// cualquiera podría dejar sin acceso a un compañero (o a la demo entera) fallando a propósito.
+const LOGIN = { max: 10, minutos: 15 };
+export class DemasiadosIntentos extends CredentialsSignin {
+  code = "demasiados-intentos";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 60 * 60 * 12 },
@@ -13,11 +21,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: { email: {}, password: {} },
-      async authorize(credenciales) {
+      // El límite va aquí y no en la acción del formulario: también cubre a quien llame directo a /api/auth.
+      async authorize(credenciales, req) {
+        const clave = `login:${ipDe(req.headers)}`;
+        if (await agotado(clave, LOGIN.max, LOGIN.minutos)) throw new DemasiadosIntentos();
         const datos = esquemaLogin.safeParse(credenciales);
-        if (!datos.success) return null;
-        const usuario = await prisma.usuario.findUnique({ where: { email: datos.data.email } });
-        if (!usuario || !(await compare(datos.data.password, usuario.passwordHash))) return null;
+        const usuario = datos.success ? await prisma.usuario.findUnique({ where: { email: datos.data.email } }) : null;
+        if (!datos.success || !usuario || !(await compare(datos.data.password, usuario.passwordHash))) {
+          await permitido(clave, LOGIN.max, LOGIN.minutos); // solo cuentan los fallos
+          return null;
+        }
         return { id: usuario.id, email: usuario.email, name: usuario.nombre };
       },
     }),

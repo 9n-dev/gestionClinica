@@ -1,6 +1,7 @@
 import { cronAutorizado } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { emailRecordatorio } from "@/lib/emails/enviar";
+import { borrarIntentosViejos } from "@/lib/limite";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,5 +28,6 @@ export async function GET(req: Request) {
     if (await emailRecordatorio({ ...cita, pacienteEmail: cita.pacienteEmail! })) enviados++;
     else await prisma.cita.update({ where: { id: cita.id }, data: { recordatorioEnviadoAt: null } }); // se reintenta en la próxima pasada
   }
+  await borrarIntentosViejos(); // limpieza diaria de los contadores del límite de intentos
   return Response.json({ pendientes: citas.length, enviados });
 }

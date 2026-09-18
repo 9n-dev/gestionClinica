@@ -180,3 +180,15 @@ model EmailEnviado {
   @@index([enviadoAt])
   @@map("emails_enviados")
 }
+
+// Límite de intentos (login, reserva web, recuperar contraseña): un contador por clave y ventana de tiempo.
+// En la propia base de datos porque en Vercel no hay memoria compartida entre funciones.
+model Intento {
+  clave   String // "login:203.0.113.7"
+  ventana DateTime // inicio de la ventana
+  cuenta  Int      @default(1)
+
+  @@id([clave, ventana])
+  @@index([ventana])
+  @@map("intentos")
+}
