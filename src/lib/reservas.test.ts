@@ -90,3 +90,22 @@ describe("moverCita", () => {
     expect(panel.ok).toBe(true);
   });
 });
+
+describe("paciente de la cita", () => {
+  const reservar = (nombre: string, hora: string, email: string | null = null) =>
+    crearCita({ nombre, telefono: "622222222", email, servicio: "consulta-general", profesional: "laura-serrano", dia: sumarDias(LUNES, 2), hora }, true);
+  const pacienteDe = async (r: Awaited<ReturnType<typeof reservar>>) => {
+    if (!r.ok) throw new Error(r.error);
+    return (await prisma.cita.findUniqueOrThrow({ where: { id: r.id }, include: { paciente: true } })).paciente;
+  };
+
+  it("mismo teléfono y mismo nombre (con o sin acentos) es el mismo paciente; otro nombre, otro paciente", async () => {
+    const a = await pacienteDe(await reservar("José Pérez Núñez", "09:00"));
+    const b = await pacienteDe(await reservar("  jose  PEREZ nunez ", "10:00", "jose@ejemplo.com"));
+    const hijo = await pacienteDe(await reservar("Hugo Pérez Núñez", "11:00"));
+    expect(b.id).toBe(a.id);
+    expect(b.nombre).toBe("José Pérez Núñez"); // se queda el nombre de la primera vez
+    expect(b.email).toBe("jose@ejemplo.com"); // y el email más reciente
+    expect(hijo.id).not.toBe(a.id);
+  });
+});

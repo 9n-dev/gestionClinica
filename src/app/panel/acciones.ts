@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requerirSesion } from "@/lib/auth";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { aInstante, diaDe, formatoHora, minutosAHora } from "@/lib/fechas";
+import { normalizarNombre } from "@/lib/pacientes";
 import { cancelarCita, crearCita, moverCita } from "@/lib/reservas";
-import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaProfesional, esquemaServicio } from "@/lib/validacion";
+import { esquemaBloqueo, esquemaCitaPanel, esquemaHorario, esquemaMover, esquemaNotas, esquemaPaciente, esquemaProfesional, esquemaServicio } from "@/lib/validacion";
 
 export type Estado = { error?: string; ok?: string; campos?: Record<string, string[] | undefined>; valores?: Record<string, string> };
 
@@ -66,6 +68,23 @@ export async function moverArrastrando(id: string, profesionalSlug: string, inic
   const r = await moverCita(id, { profesional: profesionalSlug, dia: diaDe(inicio), hora: formatoHora(inicio) });
   if (r.ok) refrescar();
   return r;
+}
+
+// ---------- Pacientes ----------
+
+/** Cambia la ficha. Las citas conservan lo que se escribió al reservar. */
+export async function guardarPaciente(id: string, _: Estado, fd: FormData): Promise<Estado> {
+  await requerirSesion();
+  const datos = esquemaPaciente.safeParse(Object.fromEntries(fd));
+  if (!datos.success) return { error: primerError(datos.error) };
+  try {
+    await prisma.paciente.update({ where: { id }, data: { ...datos.data, notas: datos.data.notas || null, nombreNorm: normalizarNombre(datos.data.nombre) } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: "Ya hay otro paciente con ese nombre y ese teléfono." };
+    throw e;
+  }
+  refrescar();
+  return { ok: "Ficha guardada." };
 }
 
 // ---------- Bloqueos ----------

@@ -3,15 +3,15 @@
 import { useActionState } from "react";
 import { crearCitaPanel, type Estado } from "../../../acciones";
 
-type Props = { servicio: string; profesional: string; dia: string; horas: string[]; horaInicial?: string };
+type Props = { servicio: string; profesional: string; dia: string; horas: string[]; horaInicial?: string; paciente?: Record<string, string> };
 
-export function FormularioCitaPanel({ horas, horaInicial, ...fijos }: Props) {
+export function FormularioCitaPanel({ horas, horaInicial, paciente, ...fijos }: Props) {
   const [estado, accion, enviando] = useActionState<Estado, FormData>(crearCitaPanel, {});
   const campo = (nombre: string) => ({
     id: nombre,
     name: nombre,
     className: "campo",
-    defaultValue: estado.valores?.[nombre],
+    defaultValue: estado.valores?.[nombre] ?? paciente?.[nombre],
     "aria-invalid": estado.campos?.[nombre] ? true : undefined,
     "aria-describedby": estado.campos?.[nombre] ? `${nombre}-error` : undefined,
   });

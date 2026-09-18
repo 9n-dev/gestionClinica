@@ -7,16 +7,10 @@ import { prisma } from "@/lib/db";
 import { diaDe, esDia, formatoDia, formatoFechaHora, formatoFechaLarga, formatoHora, formatoPrecio, hoy } from "@/lib/fechas";
 import { huecosEnRango } from "@/lib/reservas";
 import { cambiarEstado, cancelarDesdePanel } from "../../../acciones";
+import { ESTADOS } from "../../estados";
 import { FormularioMover, FormularioNotas } from "./formularios";
 
 export const metadata: Metadata = { title: "Detalle de cita" };
-
-const ESTADOS = {
-  CONFIRMADA: { texto: "Confirmada", clase: "bg-cielo text-cobalto-oscuro" },
-  ATENDIDA: { texto: "Atendida", clase: "bg-pino-claro text-exito" },
-  NO_PRESENTADA: { texto: "No se presentó", clase: "bg-ambar-claro text-tinta" },
-  CANCELADA: { texto: "Cancelada", clase: "bg-white text-error border border-error" },
-};
 
 type Params = { creada?: string; movida?: string; dia?: string; profesional?: string };
 
@@ -26,6 +20,7 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
   const sp = await searchParams;
   const cita = await prisma.cita.findUnique({ where: { id }, include: { servicio: true, profesional: true, emails: { orderBy: { enviadoAt: "asc" } } } });
   if (!cita) notFound();
+  const faltas = await prisma.cita.count({ where: { pacienteId: cita.pacienteId, estado: "NO_PRESENTADA", id: { not: id } } });
   const estado = ESTADOS[cita.estado];
   const aviso = sp.creada ? "Cita creada." : sp.movida ? "Cita movida." : null;
 
@@ -44,7 +39,11 @@ export default async function DetalleCita({ params, searchParams }: { params: Pr
       <p><Link href={`/panel/agenda?fecha=${diaDe(cita.inicio)}`} className="enlace">Volver a la agenda de ese día</Link></p>
       {aviso && <p role="status" className="mt-4 rounded-md bg-pino-claro px-4 py-2 font-bold text-exito">{aviso}</p>}
       <h1 className="mt-4 text-3xl font-bold">{cita.pacienteNombre}</h1>
-      <p className="mt-2"><span className={`inline-block rounded px-2.5 py-0.5 font-bold ${estado.clase}`}>{estado.texto}</span></p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className={`inline-block rounded px-2.5 py-0.5 font-bold ${estado.clase}`}>{estado.texto}</span>
+        <Link href={`/panel/pacientes/${cita.pacienteId}`} className="enlace">Ver la ficha del paciente</Link>
+      </p>
+      {faltas > 0 && <p className="mt-3 rounded-md bg-ambar-claro px-4 py-2"><strong>Ojo:</strong> este paciente no se presentó a {faltas === 1 ? "otra cita" : `otras ${faltas} citas`}.</p>}
 
       <dl className="mt-6 grid gap-x-8 gap-y-3 rounded-lg border border-linea bg-white p-6 sm:grid-cols-[10rem_1fr]">
         <dt className="text-pizarra">Servicio</dt>

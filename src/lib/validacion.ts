@@ -47,6 +47,13 @@ export const esquemaCitaPanel = z.object({
   notas: z.string().trim().max(1000).optional(),
 });
 
+export const esquemaPaciente = z.object({
+  nombre: z.string().trim().min(3, "Escribe el nombre y los apellidos").max(80),
+  telefono,
+  email: emailOpcional,
+  notas: z.string().trim().max(1000),
+});
+
 export const esquemaMover = z.object({ profesional: z.string().min(1).max(80), dia, hora });
 
 export const esquemaNotas = z.object({ notas: z.string().trim().max(1000) });

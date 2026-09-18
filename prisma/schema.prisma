@@ -71,6 +71,22 @@ model HorarioLaboral {
   @@map("horarios_laborales")
 }
 
+// Identidad del paciente: mismo teléfono y mismo nombre (sin acentos ni mayúsculas).
+// Mismo teléfono con otro nombre es otro paciente: la madre que reserva para su hijo con su móvil.
+model Paciente {
+  id         String   @id @default(cuid())
+  nombre     String
+  nombreNorm String // normalizarNombre(nombre); también sirve para buscar sin acentos
+  telefono   String
+  email      String?
+  notas      String? // internas, de la ficha. No es historia clínica.
+  creadoAt   DateTime @default(now())
+  citas      Cita[]
+
+  @@unique([telefono, nombreNorm])
+  @@map("pacientes")
+}
+
 model Cita {
   id                    String          @id @default(cuid())
   servicioId            String
@@ -80,6 +96,9 @@ model Cita {
   inicio                DateTime // UTC
   fin                   DateTime
   estado                EstadoCita      @default(CONFIRMADA)
+  pacienteId            String
+  paciente              Paciente        @relation(fields: [pacienteId], references: [id])
+  // Foto de lo que se escribió al reservar; la ficha viva está en Paciente.
   pacienteNombre        String
   pacienteTelefono      String
   pacienteEmail         String? // opcional en citas creadas desde el panel (teléfono, mostrador)
@@ -93,6 +112,7 @@ model Cita {
 
   @@index([profesionalId, inicio])
   @@index([estado, inicio])
+  @@index([pacienteId, inicio])
   @@map("citas")
 }
 

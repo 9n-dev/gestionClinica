@@ -4,6 +4,7 @@ import { prisma } from "./db";
 import { calcularHuecos, finDe, franjasDe } from "./disponibilidad";
 import { emailCitaModificada, emailsCitaCancelada, emailsCitaNueva } from "./emails/enviar";
 import { aInstante, hoy, sumarDias, type Dia } from "./fechas";
+import { normalizarNombre } from "./pacientes";
 import { nuevoToken } from "./seed-datos";
 
 export const CUALQUIERA = "cualquiera";
@@ -100,16 +101,23 @@ export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ 
   const citasDe = (id: string) => carga.find((c) => c.profesionalId === id)?._count ?? 0;
   const candidatos = [...hueco.profesionalIds].sort((a, b) => citasDe(a) - citasDe(b));
 
+  const nombreNorm = normalizarNombre(d.nombre);
   for (const profesionalId of candidatos) {
     try {
-      // Cita y franjas se insertan en una única transacción. Si otra reserva ocupó alguna franja,
+      // Cita, franjas y paciente (si es nuevo) se insertan en una única transacción. Si otra reserva ocupó alguna franja,
       // la clave primaria (profesionalId, inicio) de franjas_ocupadas falla y no se guarda nada.
       const cita = await prisma.cita.create({
         data: {
-          servicioId: servicio.id,
-          profesionalId,
+          servicio: { connect: { id: servicio.id } },
+          profesional: { connect: { id: profesionalId } },
           inicio,
           fin: finDe(inicio, servicio.duracionMin),
+          paciente: {
+            connectOrCreate: {
+              where: { telefono_nombreNorm: { telefono: d.telefono, nombreNorm } },
+              create: { nombre: d.nombre, nombreNorm, telefono: d.telefono, email: d.email },
+            },
+          },
           pacienteNombre: d.nombre,
           pacienteTelefono: d.telefono,
           pacienteEmail: d.email,
@@ -119,6 +127,8 @@ export async function crearCita(d: DatosReserva, desdePanel = false): Promise<{ 
         },
         include: { servicio: true, profesional: true },
       });
+      // Paciente que ya existía: el email más reciente es el bueno.
+      if (d.email) await prisma.paciente.update({ where: { id: cita.pacienteId }, data: { email: d.email } });
       await emailsCitaNueva(cita);
       return { ok: true, token: cita.tokenCancelacion, id: cita.id };
     } catch (e) {

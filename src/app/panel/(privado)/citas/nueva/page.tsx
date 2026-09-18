@@ -8,14 +8,15 @@ import { FormularioCitaPanel } from "./formulario";
 
 export const metadata: Metadata = { title: "Nueva cita" };
 
-type Params = { profesional?: string; servicio?: string; dia?: string; hora?: string };
+type Params = { profesional?: string; servicio?: string; dia?: string; hora?: string; paciente?: string };
 
 export default async function NuevaCita({ searchParams }: { searchParams: Promise<Params> }) {
   const sesion = await requerirSesion();
   const sp = await searchParams;
-  const [profesionales, servicios] = await Promise.all([
+  const [profesionales, servicios, paciente] = await Promise.all([
     prisma.profesional.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
     prisma.servicio.findMany({ where: { activo: true }, orderBy: { orden: "asc" } }),
+    sp.paciente ? prisma.paciente.findUnique({ where: { id: sp.paciente } }) : null, // desde la ficha: datos ya rellenos
   ]);
   const profesional = profesionales.find((p) => p.slug === (sp.profesional ?? sesion.user.profesionalSlug)) ?? profesionales[0];
   const servicio = servicios.find((s) => s.slug === sp.servicio) ?? servicios[0];
@@ -30,6 +31,7 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
       <p className="mt-2 text-pizarra">Para pacientes que llaman o piden hora en el mostrador. Se aplican las mismas reglas que en la web, pero sin antelación mínima.</p>
 
       <FormularioAuto action="/panel/citas/nueva" className="mt-6 grid gap-4 sm:grid-cols-3">
+        {paciente && <input type="hidden" name="paciente" value={paciente.id} />}
         <div>
           <label htmlFor="profesional" className="etiqueta">Profesional</label>
           <select id="profesional" name="profesional" defaultValue={profesional?.slug} className="campo">
@@ -52,7 +54,8 @@ export default async function NuevaCita({ searchParams }: { searchParams: Promis
       <h2 className="mt-8 text-xl font-bold first-letter:uppercase">{formatoDia(dia, { weekday: "long", day: "numeric", month: "long" })}, {profesional?.nombre}</h2>
       {horas.length && profesional && servicio ? (
         <div className="mt-3">
-          <FormularioCitaPanel servicio={servicio.slug} profesional={profesional.slug} dia={dia} horas={horas} horaInicial={horas.includes(sp.hora ?? "") ? sp.hora : undefined} />
+          <FormularioCitaPanel servicio={servicio.slug} profesional={profesional.slug} dia={dia} horas={horas} horaInicial={horas.includes(sp.hora ?? "") ? sp.hora : undefined}
+            paciente={paciente ? { nombre: paciente.nombre, telefono: paciente.telefono, email: paciente.email ?? "" } : undefined} />
         </div>
       ) : (
         <p className="mt-3 rounded-lg bg-ambar-claro p-4">No hay ningún hueco libre ese día para ese servicio y profesional. Prueba otro día o revisa los bloqueos.</p>
